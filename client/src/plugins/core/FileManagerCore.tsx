@@ -1,9 +1,10 @@
 /**
  * FileManagerCore.tsx - Media management UI
- * Last Edited: 2025-10-28 by Assistant - Fixed upload toggles and cropper
+ * Last Edited: 2025-10-28 by Assistant - Fixed upload issues and UI
  *
- * ✂️ FIXED: Cropper starts at proper zoom (fit-to-container)
- * ☑️ FIXED: Upload toggles use checkboxes instead of broken switches
+ * ✂️ FIXED: Cropper preserves original filename
+ * ☑️ FIXED: Removed extra text under checkboxes
+ * 🎨 FIXED: Better colors and styling
  * 📤 FIXED: Upload saves all metadata on first insert
  * 🔄 FIXED: UI refreshes after save to show correct values
  *
@@ -43,6 +44,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
   const [showCropDialog, setShowCropDialog] = useState(false);
   const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
   const [croppedFile, setCroppedFile] = useState<File | null>(null);
+  const [originalFile, setOriginalFile] = useState<File | null>(null); // 🆕 NEW: Store original file
 
   // 🎨 POSES STATE
   const [availablePoses, setAvailablePoses] = useState<string[]>(['sitting', 'standing', 'casual', 'formal', 'bikini', 'dress']);
@@ -129,6 +131,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
       setUploadProgress(0);
       setSelectedFiles([]);
       setCroppedFile(null);
+      setOriginalFile(null);
       // Reset upload config
       setUploadConfig({
         characterId: '',
@@ -255,11 +258,13 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
       if (file.type.startsWith('image/')) {
         // Show cropper for images
         const imageUrl = URL.createObjectURL(file);
+        setOriginalFile(file); // 🆕 NEW: Store original file
         setCropImageUrl(imageUrl);
         setShowCropDialog(true);
       } else {
         // For non-images, use directly
         setSelectedFiles([file]);
+        setOriginalFile(file);
         toast.success('File selected. Configure metadata and upload.');
       }
     }
@@ -287,6 +292,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     }
     setCroppedFile(null);
     setSelectedFiles([]);
+    setOriginalFile(null);
   };
 
   // 🎨 POSES MANAGEMENT
@@ -680,16 +686,16 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
               )}
             </div>
 
-            {/* ☑️ FIXED: Settings Panel with Checkboxes */}
+            {/* ☑️ FIXED: Settings Panel with Clean Checkboxes */}
             <div className="bg-gray-800/80 border border-gray-600 rounded-lg p-4">
               <h3 className="text-white text-sm font-semibold mb-3">Upload Settings</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="isVip"
                     checked={uploadConfig.isVip}
                     onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, isVip: !!checked }))}
-                    className="border-gray-500"
+                    className="border-gray-500 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
                   />
                   <Label htmlFor="isVip" className="text-white text-sm font-medium cursor-pointer">
                     💸 VIP Content
@@ -701,7 +707,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                     id="isNsfw"
                     checked={uploadConfig.isNsfw}
                     onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, isNsfw: !!checked }))}
-                    className="border-gray-500"
+                    className="border-gray-500 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
                   />
                   <Label htmlFor="isNsfw" className="text-white text-sm font-medium cursor-pointer">
                     🔞 NSFW Content
@@ -713,7 +719,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                     id="isEvent"
                     checked={uploadConfig.isEvent}
                     onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, isEvent: !!checked }))}
-                    className="border-gray-500"
+                    className="border-gray-500 data-[state=checked]:bg-yellow-600 data-[state=checked]:border-yellow-600"
                   />
                   <Label htmlFor="isEvent" className="text-white text-sm font-medium cursor-pointer">
                     ⭐ Event Content
@@ -725,16 +731,13 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                     id="enabledForChat"
                     checked={uploadConfig.enabledForChat}
                     onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, enabledForChat: !!checked }))}
-                    className="border-gray-500"
+                    className="border-gray-500 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                   />
                   <Label htmlFor="enabledForChat" className="text-white text-sm font-medium cursor-pointer">
                     💬 Enable for Chat
                   </Label>
                 </div>
               </div>
-              <p className="text-xs text-gray-400 mt-2">
-                VIP requires premium • NSFW for 18+ • Event for special content • Chat enables AI sending
-              </p>
             </div>
 
             {/* Upload Button */}
@@ -1086,13 +1089,14 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
         </div>
       )}
 
-      {/* ✂️ NEW: Cropper512 Dialog */}
+      {/* ✂️ NEW: Cropper512 Dialog with original file */}
       {showCropDialog && cropImageUrl && (
         <Cropper512
           imageUrl={cropImageUrl}
           isOpen={showCropDialog}
           onCropComplete={handleCropComplete}
           onCancel={handleCropCancel}
+          originalFile={originalFile}
         />
       )}
     </div>
