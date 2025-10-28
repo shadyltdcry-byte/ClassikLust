@@ -2,7 +2,6 @@ import React from "react";
 import { Progress } from "@/components/ui/progress";
 import { Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { usePlayer } from "@/hooks/usePlayer";
 
 interface PlayerStatsPanelProps {
   selectedCharacter?: any;
@@ -16,18 +15,17 @@ export default function PlayerStatsPanel({
   onOpenGallery
 }: PlayerStatsPanelProps) {
   const { user } = useAuth();
-  const { data: playerData } = usePlayer();
   
-  // Dynamic username from Telegram/Auth context
-  const displayName = user?.telegram?.username || user?.displayName || user?.username || playerData?.username || "Player";
-  const currentLP = user?.lp || playerData?.lp || 0;
-  const currentLevel = user?.level || playerData?.level || 1;
-  const currentXP = user?.xp || playerData?.xp || 0;
-  const xpToNext = user?.xpToNext || playerData?.xpToNext || 100;
-  const currentEnergy = user?.energy || playerData?.energy || 987;
-  const maxEnergy = user?.maxEnergy || playerData?.maxEnergy || 1000;
-  const lpPerHour = user?.lpPerHour || playerData?.lpPerHour || 250;
-  const lustGems = user?.lustGems || playerData?.lustGems || 0;
+  // Get data directly from auth context (no hook dependency)
+  const displayName = user?.telegram?.username || user?.displayName || user?.username || "Player";
+  const currentLP = user?.lp || 0;
+  const currentLevel = user?.level || 1;
+  const currentXP = user?.xp || 0;
+  const xpToNext = user?.xpToNext || 100;
+  const currentEnergy = user?.energy || 987;
+  const maxEnergy = user?.maxEnergy || 1000;
+  const lpPerHour = user?.lpPerHour || 250;
+  const lustGems = user?.lustGems || 0;
 
   return (
     <div className="flex justify-between items-center p-3 bg-gradient-to-r from-[#2a0a1f]/95 via-[#330a22]/90 to-[#2a0f22]/95 border-b border-pink-500/20 flex-shrink-0 backdrop-blur-sm relative">
@@ -49,19 +47,7 @@ export default function PlayerStatsPanel({
               src={selectedCharacter?.avatarUrl || selectedCharacter?.imageUrl || selectedCharacter?.avatarPath || "https://via.placeholder.com/80x80/1a1a1a/ff1493?text=👤"}
               alt="Character Avatar"
               loading="eager"
-              onLoad={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.style.opacity = '1';
-              }}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                if (target.src !== "https://via.placeholder.com/80x80/1a1a1a/ff1493?text=👤") {
-                  target.src = "https://via.placeholder.com/80x80/1a1a1a/ff1493?text=👤";
-                }
-                target.style.opacity = '1';
-              }}
               className="w-20 h-20 object-cover rounded-xl shadow-md border-2 border-purple-400/40 cursor-pointer hover:border-purple-300/60 transition-all duration-300"
-              style={{ opacity: 0, transition: 'opacity 0.5s ease-in-out' }}
             />
           </div>
           <div className="flex flex-col items-center gap-1">
