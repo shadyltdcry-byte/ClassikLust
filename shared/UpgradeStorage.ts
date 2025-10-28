@@ -1,6 +1,6 @@
 /**
- * UpgradeStorage.ts - Self-Healing JSON-First Upgrade System (Anti-Spam)
- * Last Edited: 2025-10-24 by Assistant - Throttled schema init to prevent log spam
+ * UpgradeStorage.ts - Fixed JSON-First Upgrade System
+ * Fixed: Column name conflicts and schema alignment with Drizzle
  */
 
 import { promises as fs } from 'fs';
@@ -52,9 +52,8 @@ export class UpgradeStorage {
   }
 
   /**
-   * 🚫 THROTTLED SCHEMA INITIALIZATION (ANTI-SPAM)
-   * Runs once per server startup or after TTL expires
-   * Prevents the log spam from repeated ensureSchema() calls
+   * 🚫 SIMPLIFIED SCHEMA CHECK (ANTI-SPAM)
+   * Just ensures the userUpgrades table exists - doesn't recreate upgrades table
    */
   async ensureSchema(): Promise<void> {
     const now = Date.now();
@@ -81,117 +80,43 @@ export class UpgradeStorage {
   }
 
   /**
-   * 🔧 ACTUAL SCHEMA WORK (PRIVATE)
-   * Only logs on first run or after TTL - prevents spam
+   * 🔧 MINIMAL SCHEMA WORK (PRIVATE)
+   * Only ensures userUpgrades table exists - relies on Drizzle for main schema
    */
   private async doSchemaInit(): Promise<void> {
-    console.log('🔍 [UPGRADES] Initializing schema (throttled)...');
+    console.log('🔍 [UPGRADES] Checking schema (minimal approach)...');
     
     try {
-      // 1. Create tables with quoted identifiers for case preservation
-      const schemaQueries = [
-        // Drop conflicting tables
-        'DROP TABLE IF EXISTS userupgrades CASCADE',
-        'DROP TABLE IF EXISTS upgrades CASCADE',
-        
-        // Create upgrades master table
-        `CREATE TABLE IF NOT EXISTS "upgrades" (
-          "id" TEXT PRIMARY KEY,
-          "name" TEXT NOT NULL,
-          "category" TEXT NOT NULL,
-          "maxLevel" INTEGER NOT NULL DEFAULT 1,
-          "createdAt" TIMESTAMP NOT NULL DEFAULT NOW()
-        )`,
-        
-        // Create user upgrades progress table
-        `CREATE TABLE IF NOT EXISTS "userUpgrades" (
-          "userId" TEXT NOT NULL,
+      // Only ensure userUpgrades table exists (matches Drizzle schema exactly)
+      const userUpgradesQuery = `
+        CREATE TABLE IF NOT EXISTS "userUpgrades" (
+          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "userId" UUID NOT NULL,
           "upgradeId" TEXT NOT NULL,
           "level" INTEGER NOT NULL DEFAULT 0,
-          "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-          PRIMARY KEY ("userId","upgradeId")
-        )`,
-        
-        // Create indexes
-        'CREATE INDEX IF NOT EXISTS "idx_userUpgrades_user" ON "userUpgrades"("userId")',
-        'CREATE INDEX IF NOT EXISTS "idx_userUpgrades_upgrade" ON "userUpgrades"("upgradeId")'
-      ];
+          "purchasedAt" TIMESTAMP NOT NULL DEFAULT now()
+        )`;
 
-      // Execute schema queries individually (more reliable than bulk)
-      for (const query of schemaQueries) {
-        try {
-          await this.storage.supabase.rpc('exec', { query });
-        } catch (error: any) {
-          // Ignore expected errors like "already exists"
-          if (!error.message?.includes('already exists') && 
-              !error.message?.includes('does not exist')) {
-            console.warn(`⚠️ [UPGRADES] Schema query warning: ${error.message}`);
-          }
-        }
-      }
-
-      // 2. Auto-sync JSON upgrades to DB for FK compliance
-      await this.syncJsonToDatabase();
-
-      // 3. Force PostgREST schema cache refresh
-      const timestamp = Date.now();
       try {
-        await this.storage.supabase.rpc('exec', { 
-          query: `COMMENT ON TABLE "upgrades" IS 'refresh-${timestamp}'` 
-        });
-      } catch (e) {
-        // Comment might fail, ignore
+        await this.storage.supabase.rpc('exec', { query: userUpgradesQuery });
+        console.log('✅ [UPGRADES] userUpgrades table ready');
+      } catch (error: any) {
+        // Table might already exist, that's fine
+        if (!error.message?.includes('already exists')) {
+          console.warn(`⚠️ [UPGRADES] Schema warning: ${error.message}`);
+        }
       }
 
       // Mark as successful
       UpgradeStorage.schemaInitialized = true;
       UpgradeStorage.lastSchemaCheck = Date.now();
-      console.log('✅ [UPGRADES] Schema initialized successfully (throttled)');
+      console.log('✅ [UPGRADES] Schema check completed');
 
     } catch (error) {
       console.error('❌ [UPGRADES] Schema initialization failed:', error);
       // Set as initialized anyway to prevent infinite retries
       UpgradeStorage.schemaInitialized = true;
       UpgradeStorage.lastSchemaCheck = Date.now();
-    }
-  }
-
-  /**
-   * 🔄 AUTO-SYNC JSON → DATABASE
-   * Reads all JSON upgrade files and ensures they exist in DB for FK validation
-   */
-  private async syncJsonToDatabase(): Promise<void> {
-    try {
-      const allUpgrades = await this.loadAllUpgradesFromFiles();
-      console.log(`🔄 [UPGRADES] Syncing ${allUpgrades.length} upgrades from JSON to DB...`);
-
-      // Insert/update each upgrade in the master table
-      for (const upgrade of allUpgrades) {
-        try {
-          const { error } = await this.storage.supabase
-            .from('upgrades')
-            .upsert({
-              id: upgrade.id,
-              name: upgrade.name,
-              category: upgrade.category,
-              maxLevel: upgrade.maxLevel
-            }, { 
-              onConflict: 'id',
-              ignoreDuplicates: false 
-            });
-
-          if (error && !error.message?.includes('duplicate')) {
-            console.warn(`⚠️ [UPGRADES] Failed to sync ${upgrade.id}: ${error.message}`);
-          }
-        } catch (e) {
-          // Continue with other upgrades if one fails
-        }
-      }
-
-      console.log('✅ [UPGRADES] JSON → DB sync completed');
-
-    } catch (error) {
-      console.warn('⚠️ [UPGRADES] JSON sync failed:', error);
     }
   }
 
@@ -245,7 +170,10 @@ export class UpgradeStorage {
                typeof upgrade.id === 'string' &&
                typeof upgrade.name === 'string' &&
                typeof upgrade.baseCost === 'number';
-      });
+      }).map(upgrade => ({
+        ...upgrade,
+        unlockRequirements: upgrade.unlockRequirements || {}
+      }));
     } catch (error) {
       console.warn(`Failed to load ${filename}:`, error);
       return [];
