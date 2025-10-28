@@ -81,12 +81,14 @@ function normalizeMediaWrite(m: any) {
     randomSendChance: Number(m.randomSendChance ?? m.randomsendchance ?? m['random-send-chance'] ?? 5),
     requiredLevel: Number(m.requiredLevel ?? m.requiredlevel ?? m['required-level'] ?? 1),
     mood: m.mood,
-    pose: m.pose,
+    // CRITICAL: Preserve JSONB poses field exactly as received
+    pose: m.pose, // Don't convert or normalize - keep raw JSONB
+    poses: m.poses, // Handle both singular and plural
     animationSequence: m.animationSequence ?? m.animationsequence,
     category: m.category,
     autoOrganized: Boolean(m.autoOrganized ?? m.autoorganized ?? false),
   };
-  // Remove undefined/null
+  // Remove undefined/null but preserve empty objects/arrays
   Object.keys(n).forEach(k => {
     const val = (n as any)[k];
     if (val === undefined || (typeof val === 'number' && isNaN(val))) {
@@ -94,6 +96,7 @@ function normalizeMediaWrite(m: any) {
     }
   });
   console.log('🔧 [NORMALIZE-MEDIA]', { input: Object.keys(m), output: Object.keys(n) });
+  console.log('🔧 [POSES-PRESERVED]', { pose: n.pose, poses: n.poses });
   return n;
 }
 
@@ -242,10 +245,11 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
-  // Admin Media - WITH FULL FIELD NORMALIZATION
+  // Admin Media - WITH FULL FIELD NORMALIZATION AND POSE PRESERVATION
   app.get('/api/media', async (req: Request, res: Response) => {
     try {
       const mediaFiles = await storage.getAllMedia();
+      console.log(`📸 [MEDIA] Returning ${(mediaFiles || []).length} media files`);
       res.json(mediaFiles || []);
     } catch (error) {
       console.error('Error fetching media:', error);
@@ -259,10 +263,23 @@ export function registerAdminRoutes(app: Express) {
       if (!files || files.length === 0) {
         return res.status(400).json(createErrorResponse('No files uploaded'));
       }
+      
+      console.log('📤 [UPLOAD] Request body:', req.body);
+      
       const uploadedFiles = [];
       for (const file of files) {
+        // Parse poses from request body (sent as JSON string)
+        let parsedPoses = null;
+        if (req.body.poses) {
+          try {
+            parsedPoses = typeof req.body.poses === 'string' ? JSON.parse(req.body.poses) : req.body.poses;
+          } catch (e) {
+            console.warn('Failed to parse poses JSON:', req.body.poses);
+          }
+        }
+        
         const mediaEntry = normalizeMediaWrite({
-          mood: null,
+          mood: req.body.mood || null,
           isNsfw: req.body.isNsfw === 'true' || false,
           isVip: req.body.isVip === 'true' || false,
           isEvent: req.body.isEvent === 'true' || false,
@@ -270,16 +287,18 @@ export function registerAdminRoutes(app: Express) {
           fileName: file.originalname,
           filePath: `/uploads/${file.filename}`,
           fileType: file.mimetype?.startsWith('image/') ? 'image' : file.mimetype?.startsWith('video/') ? 'video' : 'file',
-          pose: null,
-          animationSequence: null,
+          pose: parsedPoses, // Use parsed JSONB poses
+          animationSequence: req.body.animationSequence || null,
           randomSendChance: parseInt(req.body.randomSendChance) || 5,
           requiredLevel: parseInt(req.body.requiredLevel) || 1,
-          enabledForChat: true,
+          enabledForChat: req.body.enabledForChat !== 'false',
           autoOrganized: false,
           category: req.body.category || 'Character'
         });
-        console.log('📎 [MEDIA] Creating:', mediaEntry);
+        
+        console.log('📎 [MEDIA] Creating with pose data:', mediaEntry);
         const created = await storage.createMedia(mediaEntry);
+        console.log('✅ [MEDIA] Created:', created?.id, 'with poses:', created?.pose);
         uploadedFiles.push(created);
       }
       res.json(createSuccessResponse({ message: `Successfully uploaded ${uploadedFiles.length} files`, files: uploadedFiles }));
@@ -483,5 +502,5 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
-  console.log('✅ Admin routes registered with FULL field normalization and update verification + isAdmin auth guard');
+  console.log('✅ Admin routes registered with FULL field normalization, pose preservation, and isAdmin auth guard');
 }
