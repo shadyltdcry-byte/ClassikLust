@@ -249,6 +249,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
       parts.push(`Character_${character?.name || file.characterId}`);
     }
     if (file.mood) parts.push(`Mood_${file.mood}`);
+    if (file.pose) parts.push('Pose');
     if (file.isVip) parts.push('VIP');
     if (file.isNsfw) parts.push('NSFW');
     if (file.isEvent) parts.push('Event');
