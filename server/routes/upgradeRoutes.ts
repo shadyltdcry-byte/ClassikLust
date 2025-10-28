@@ -72,21 +72,61 @@ router.post('/:upgradeId/purchase', async (req, res) => {
       const newLP = (user.lp || 0) - cost;
       await supabaseStorage.updateUser(userId, { lp: newLP });
 
-      // Update upgrade level
-      const { error: upgradeError } = await supabaseStorage.supabase
+      // Update upgrade level - Fixed to handle Telegram IDs and proper constraints
+      console.log(`🔄 [PURCHASE] Updating upgrade progress for user ${userId}, upgrade ${upgradeId}`);
+      
+      // First, try to get the user's UUID from their telegram ID
+      const userRecord = await supabaseStorage.supabase
+        .from('users')
+        .select('id')
+        .eq('telegramId', userId)
+        .single();
+      
+      let actualUserId = userId;
+      if (userRecord.data?.id) {
+        actualUserId = userRecord.data.id;
+        console.log(`🔄 [PURCHASE] Using UUID ${actualUserId} for Telegram ID ${userId}`);
+      } else {
+        console.log(`⚠️ [PURCHASE] Could not find UUID for ${userId}, using string ID directly`);
+      }
+
+      // Try to update existing record first
+      const { data: existingUpgrade } = await supabaseStorage.supabase
         .from('userUpgrades')
-        .upsert({
-          userId,
-          upgradeId,
-          level: currentLevel + 1,
-          updatedAt: new Date().toISOString()
-        }, {
-          onConflict: 'userId,upgradeId'
-        });
+        .select('id, level')
+        .eq('userId', actualUserId)
+        .eq('upgradeId', upgradeId)
+        .single();
+
+      let upgradeError;
+      if (existingUpgrade) {
+        // Update existing record
+        console.log(`🔄 [PURCHASE] Updating existing upgrade record`);
+        const { error } = await supabaseStorage.supabase
+          .from('userUpgrades')
+          .update({
+            level: currentLevel + 1,
+            purchasedAt: new Date().toISOString()
+          })
+          .eq('id', existingUpgrade.id);
+        upgradeError = error;
+      } else {
+        // Insert new record
+        console.log(`🔄 [PURCHASE] Creating new upgrade record`);
+        const { error } = await supabaseStorage.supabase
+          .from('userUpgrades')
+          .insert({
+            userId: actualUserId,
+            upgradeId,
+            level: currentLevel + 1,
+            purchasedAt: new Date().toISOString()
+          });
+        upgradeError = error;
+      }
 
       if (upgradeError) {
-        console.error('Failed to update upgrade:', upgradeError);
-        throw new Error('Failed to save upgrade progress');
+        console.error('❌ [PURCHASE] Failed to update upgrade:', upgradeError);
+        throw new Error(`Failed to save upgrade progress: ${upgradeError.message}`);
       }
 
       // Get updated user stats
@@ -109,13 +149,13 @@ router.post('/:upgradeId/purchase', async (req, res) => {
 
     } catch (transactionError) {
       // Rollback LP if upgrade save failed
-      console.error('Transaction failed, attempting rollback:', transactionError);
+      console.error('❌ [PURCHASE] Transaction failed, attempting rollback:', transactionError);
       await supabaseStorage.updateUser(userId, { lp: user.lp });
       throw transactionError;
     }
 
   } catch (error) {
-    console.error('Error purchasing upgrade:', error);
+    console.error('❌ [PURCHASE] Error purchasing upgrade:', error);
     res.status(500).json({ success: false, error: 'Purchase failed' });
   }
 });
