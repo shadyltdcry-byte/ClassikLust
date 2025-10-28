@@ -5,6 +5,19 @@ import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { SupabaseStorage } from 'shared/SupabaseStorage';
 
+// 🔧 FIXED: Interface for upload configuration
+interface UploadConfig {
+  characterId?: string;
+  mood?: string;
+  pose?: any; // Can be string or object/array
+  requiredLevel?: number;
+  isVip?: boolean;
+  isNsfw?: boolean;
+  isEvent?: boolean;
+  randomSendChance?: number;
+  enabledForChat?: boolean;
+}
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -17,9 +30,9 @@ const storage = multer.diskStorage({
     
     cb(null, uploadsDir);
   },
-  fileName: (req, file, cb) => {
+  filename: (req, file, cb) => { // 🔧 FIXED: filename not fileName
     // Generate unique filename with timestamp
-    const ext = path.extname(file.originalName);
+    const ext = path.extname(file.originalname); // 🔧 FIXED: originalname not originalName
     const fileName = `uploaded_${Date.now()}_${uuidv4()}${ext}`;
     cb(null, fileName);
   }
@@ -73,8 +86,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    // Parse upload configuration
-    let config = {};
+    // Parse upload configuration with proper typing
+    let config: UploadConfig = {};
     try {
       config = JSON.parse((req.body as any).config || '{}');
     } catch (e) {
@@ -112,19 +125,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
 
           // Move file to character folder
-          const newPath = path.join(characterFolder, file.fileName);
+          const newPath = path.join(characterFolder, file.filename); // 🔧 FIXED: filename not fileName
           fs.renameSync(file.path, newPath);
-          file.path = newPath;
+          (file as any).path = newPath; // Update path reference
         }
 
         // Create media file record with organized path
         const filePath = config.characterId 
-          ? `/uploads/characters/${config.characterId}/${file.fileName}`
-          : `/uploads/${file.fileName}`;
+          ? `/uploads/characters/${config.characterId}/${file.filename}` // 🔧 FIXED: filename not fileName
+          : `/uploads/${file.filename}`; // 🔧 FIXED: filename not fileName
 
         const mediaFileData = {
           id: uuidv4(),
-          fileName: file.fileName,
+          fileName: file.filename, // 🔧 FIXED: filename not fileName
           filePath,
           fileType,
           characterId: config.characterId || null,
@@ -145,9 +158,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         if (savedFile) {
           uploadedFiles.push(savedFile);
-          console.log(`Successfully saved to database: ${file.fileName}`);
+          console.log(`Successfully saved to database: ${file.filename}`);
         } else {
-          console.error(`Failed to save ${file.fileName} to database`);
+          console.error(`Failed to save ${file.filename} to database`);
           // Clean up the uploaded file if database save failed
           try {
             fs.unlinkSync(file.path);
@@ -156,7 +169,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
       } catch (fileError) {
-        console.error(`Error processing file ${file.fileName}:`, fileError);
+        console.error(`Error processing file ${file.filename}:`, fileError);
         // Clean up the uploaded file on error
         try {
           fs.unlinkSync(file.path);
