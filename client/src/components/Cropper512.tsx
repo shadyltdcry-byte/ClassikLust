@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Cropper from 'react-easy-crop';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -21,11 +21,13 @@ interface Area {
  * 🎨 TRUE IMAGE CROPPER - 512x512 Canvas Export
  * Uses react-easy-crop for proper drag/pan/zoom with selectable crop area
  * Exports exact 512x512 PNG via canvas (no stretching)
+ * FIXED: Starts at fit-to-container zoom level instead of 1x
  */
 export default function Cropper512({ imageUrl, onCropComplete, onCancel, isOpen }: CropperProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [initialZoomSet, setInitialZoomSet] = useState(false);
 
   const onCropChange = useCallback((crop: { x: number; y: number }) => {
     setCrop(crop);
@@ -41,6 +43,37 @@ export default function Cropper512({ imageUrl, onCropComplete, onCancel, isOpen 
     },
     []
   );
+
+  // Calculate optimal initial zoom to fit image in container
+  const calculateFitZoom = useCallback(() => {
+    const img = new Image();
+    img.onload = () => {
+      // Container is roughly 384px high (24rem), account for padding
+      const containerHeight = 350; 
+      const containerWidth = 800; // Approximate container width
+      
+      // Calculate zoom to fit image fully in container
+      const scaleX = containerWidth / img.width;
+      const scaleY = containerHeight / img.height;
+      const fitZoom = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 1:1
+      
+      console.log(`📐 [CROP] Image: ${img.width}x${img.height}, Fit zoom: ${fitZoom.toFixed(2)}`);
+      
+      if (!initialZoomSet) {
+        setZoom(Math.max(fitZoom, 0.5)); // Minimum zoom of 0.5
+        setInitialZoomSet(true);
+      }
+    };
+    img.src = imageUrl;
+  }, [imageUrl, initialZoomSet]);
+
+  // Reset zoom calculation when image changes
+  useEffect(() => {
+    if (isOpen && imageUrl) {
+      setInitialZoomSet(false);
+      calculateFitZoom();
+    }
+  }, [isOpen, imageUrl, calculateFitZoom]);
 
   const createCroppedImage = useCallback(async () => {
     if (!croppedAreaPixels) return;
@@ -130,7 +163,7 @@ export default function Cropper512({ imageUrl, onCropComplete, onCancel, isOpen 
           <label className="text-sm font-medium">Zoom:</label>
           <input
             type="range"
-            min={1}
+            min={0.5}
             max={3}
             step={0.1}
             value={zoom}
