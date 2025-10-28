@@ -4418,5 +4418,13 @@
     "timestamp": "2025-10-28T14:30:20.231Z",
     "type": "text",
     "mood": "alert"
+  },
+  {
+    "id": "luna-alert-1761661929378-nj86t1t08",
+    "content": "🌙 Hey babe, just a heads up - there's a warning in System: Luna Error Monitor - Watching for any errors.",
+    "sender": "character",
+    "timestamp": "2025-10-28T14:32:09.378Z",
+    "type": "text",
+    "mood": "alert"
   }
 ]
