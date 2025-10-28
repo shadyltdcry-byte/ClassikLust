@@ -1,6 +1,6 @@
 /**
- * UpgradeStorage.ts - Fixed JSON-First Upgrade System
- * Fixed: Column name conflicts and schema alignment with Drizzle
+ * UpgradeStorage.ts - Pure JSON-First Upgrade System
+ * No database table creation - only reads from JSON files and stores user progress in userUpgrades
  */
 
 import { promises as fs } from 'fs';
@@ -23,7 +23,7 @@ export interface Upgrade {
   sortOrder: number;
   hourlyBonus: number;
   tapBonus: number;
-  unlockRequirements: {
+  unlockRequirements?: {
     upgradeId?: string;
     level?: number;
     totalUpgradeLevels?: number;
@@ -37,10 +37,6 @@ export interface UserUpgrade {
 
 export class UpgradeStorage {
   private static instance: UpgradeStorage;
-  private static schemaInitialized = false;
-  private static schemaInFlight: Promise<void> | null = null;
-  private static lastSchemaCheck = 0;
-  private static readonly SCHEMA_TTL_MS = 15 * 60 * 1000; // 15 minutes
   private cache: Map<string, Upgrade[]> = new Map();
   private storage = SupabaseStorage.getInstance();
 
@@ -52,77 +48,8 @@ export class UpgradeStorage {
   }
 
   /**
-   * 🚫 SIMPLIFIED SCHEMA CHECK (ANTI-SPAM)
-   * Just ensures the userUpgrades table exists - doesn't recreate upgrades table
-   */
-  async ensureSchema(): Promise<void> {
-    const now = Date.now();
-    
-    // Check if already initialized and within TTL
-    if (UpgradeStorage.schemaInitialized && 
-        (now - UpgradeStorage.lastSchemaCheck < UpgradeStorage.SCHEMA_TTL_MS)) {
-      return; // Silent return - no spam
-    }
-
-    // If already in flight, wait for it
-    if (UpgradeStorage.schemaInFlight) {
-      return UpgradeStorage.schemaInFlight;
-    }
-
-    // Start schema initialization
-    UpgradeStorage.schemaInFlight = this.doSchemaInit();
-    
-    try {
-      await UpgradeStorage.schemaInFlight;
-    } finally {
-      UpgradeStorage.schemaInFlight = null;
-    }
-  }
-
-  /**
-   * 🔧 MINIMAL SCHEMA WORK (PRIVATE)
-   * Only ensures userUpgrades table exists - relies on Drizzle for main schema
-   */
-  private async doSchemaInit(): Promise<void> {
-    console.log('🔍 [UPGRADES] Checking schema (minimal approach)...');
-    
-    try {
-      // Only ensure userUpgrades table exists (matches Drizzle schema exactly)
-      const userUpgradesQuery = `
-        CREATE TABLE IF NOT EXISTS "userUpgrades" (
-          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          "userId" UUID NOT NULL,
-          "upgradeId" TEXT NOT NULL,
-          "level" INTEGER NOT NULL DEFAULT 0,
-          "purchasedAt" TIMESTAMP NOT NULL DEFAULT now()
-        )`;
-
-      try {
-        await this.storage.supabase.rpc('exec', { query: userUpgradesQuery });
-        console.log('✅ [UPGRADES] userUpgrades table ready');
-      } catch (error: any) {
-        // Table might already exist, that's fine
-        if (!error.message?.includes('already exists')) {
-          console.warn(`⚠️ [UPGRADES] Schema warning: ${error.message}`);
-        }
-      }
-
-      // Mark as successful
-      UpgradeStorage.schemaInitialized = true;
-      UpgradeStorage.lastSchemaCheck = Date.now();
-      console.log('✅ [UPGRADES] Schema check completed');
-
-    } catch (error) {
-      console.error('❌ [UPGRADES] Schema initialization failed:', error);
-      // Set as initialized anyway to prevent infinite retries
-      UpgradeStorage.schemaInitialized = true;
-      UpgradeStorage.lastSchemaCheck = Date.now();
-    }
-  }
-
-  /**
-   * 📂 LOAD FILES WITHOUT SCHEMA CALLS
-   * Prevents recursive schema initialization
+   * 📂 LOAD ALL UPGRADES FROM JSON FILES
+   * Pure file-based system - no database table creation
    */
   private async loadAllUpgradesFromFiles(): Promise<Upgrade[]> {
     const files = [
@@ -175,24 +102,24 @@ export class UpgradeStorage {
         unlockRequirements: upgrade.unlockRequirements || {}
       }));
     } catch (error) {
-      console.warn(`Failed to load ${filename}:`, error);
+      console.warn(`⚠️ Failed to load ${filename}:`, error);
       return [];
     }
   }
 
   /**
    * 📂 GET ALL UPGRADES (PUBLIC API)
-   * Only calls schema init once, then uses cache
+   * Reads from JSON files and caches results
    */
   async getAllUpgrades(): Promise<Upgrade[]> {
-    // Run schema check only once (throttled)
-    await this.ensureSchema();
-    
     const cacheKey = 'all';
-    if (this.cache.has(cacheKey)) return this.cache.get(cacheKey)!;
+    if (this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey)!;
+    }
 
-    // Load from files (no recursive schema calls)
+    console.log('📈 [UPGRADES] Loading upgrades from JSON files...');
     const allUpgrades = await this.loadAllUpgradesFromFiles();
+    console.log(`📈 [UPGRADES] Loaded ${allUpgrades.length} upgrades from JSON`);
 
     this.cache.set(cacheKey, allUpgrades);
     return allUpgrades;
@@ -229,28 +156,29 @@ export class UpgradeStorage {
   }
 
   /**
-   * 📋 DATABASE OPERATIONS (THROTTLED)
-   * Only run schema once, then use for all DB calls
+   * 📋 USER UPGRADE PROGRESS (DATABASE ONLY FOR USER DATA)
+   * Only user progress is stored in database - upgrade definitions come from JSON
    */
   async getUserUpgrades(userId: string): Promise<UserUpgrade[]> {
-    await this.ensureSchema(); // Throttled call
-    
-    const { data, error } = await this.storage.supabase
-      .from('userUpgrades')
-      .select('upgradeId, level')
-      .eq('userId', userId);
-    
-    if (error) {
-      console.error('Failed to get user upgrades:', error);
+    try {
+      const { data, error } = await this.storage.supabase
+        .from('userUpgrades')
+        .select('upgradeId, level')
+        .eq('userId', userId);
+      
+      if (error) {
+        console.error('❌ Failed to get user upgrades:', error);
+        return [];
+      }
+      
+      return data || [];
+    } catch (error) {
+      console.error('❌ Error fetching user upgrades:', error);
       return [];
     }
-    
-    return data || [];
   }
 
   async getUserUpgradeLevel(userId: string, upgradeId: string): Promise<number> {
-    await this.ensureSchema(); // Throttled call
-    
     const userUpgrades = await this.getUserUpgrades(userId);
     const upgrade = userUpgrades.find(u => u.upgradeId === upgradeId);
     return upgrade?.level || 0;
@@ -264,13 +192,13 @@ export class UpgradeStorage {
     if ((user.level || 1) < upgrade.requiredLevel) return false;
 
     // Check upgrade requirements
-    if (upgrade.unlockRequirements.upgradeId && upgrade.unlockRequirements.level) {
+    if (upgrade.unlockRequirements?.upgradeId && upgrade.unlockRequirements?.level) {
       const requiredLevel = await this.getUserUpgradeLevel(userId, upgrade.unlockRequirements.upgradeId);
       if (requiredLevel < upgrade.unlockRequirements.level) return false;
     }
 
     // Check total upgrade levels requirement
-    if (upgrade.unlockRequirements.totalUpgradeLevels) {
+    if (upgrade.unlockRequirements?.totalUpgradeLevels) {
       const userUpgrades = await this.getUserUpgrades(userId);
       const totalLevels = userUpgrades.reduce((sum, u) => sum + u.level, 0);
       if (totalLevels < upgrade.unlockRequirements.totalUpgradeLevels) return false;
@@ -280,14 +208,13 @@ export class UpgradeStorage {
   }
 
   async getAvailableUpgrades(userId: string): Promise<(Upgrade & { currentLevel: number; nextCost: number; canAfford: boolean })[]> {
-    // Single schema check at start
-    await this.ensureSchema();
-    
     const allUpgrades = await this.getAllUpgrades();
     const user = await this.storage.getUser(userId);
-    const userUpgrades = await this.getUserUpgrades(userId);
     
-    if (!user) return [];
+    if (!user) {
+      console.warn('⚠️ User not found:', userId);
+      return [];
+    }
 
     const result = [];
     for (const upgrade of allUpgrades) {
@@ -310,22 +237,30 @@ export class UpgradeStorage {
   }
 
   async validatePurchase(userId: string, upgradeId: string): Promise<{ valid: boolean; reason?: string; cost?: number }> {
-    await this.ensureSchema(); // Throttled call
-    
     const upgrade = await this.getUpgrade(upgradeId);
-    if (!upgrade) return { valid: false, reason: 'Upgrade not found' };
+    if (!upgrade) {
+      return { valid: false, reason: 'Upgrade not found in JSON files' };
+    }
 
     const user = await this.storage.getUser(userId);
-    if (!user) return { valid: false, reason: 'User not found' };
+    if (!user) {
+      return { valid: false, reason: 'User not found' };
+    }
 
     const isUnlocked = await this.isUpgradeUnlocked(userId, upgrade);
-    if (!isUnlocked) return { valid: false, reason: 'Upgrade not unlocked' };
+    if (!isUnlocked) {
+      return { valid: false, reason: 'Upgrade not unlocked' };
+    }
 
     const currentLevel = await this.getUserUpgradeLevel(userId, upgradeId);
-    if (currentLevel >= upgrade.maxLevel) return { valid: false, reason: 'Max level reached' };
+    if (currentLevel >= upgrade.maxLevel) {
+      return { valid: false, reason: 'Max level reached' };
+    }
 
     const cost = this.calculateCost(upgrade, currentLevel);
-    if ((user.lp || 0) < cost) return { valid: false, reason: 'Insufficient LP', cost };
+    if ((user.lp || 0) < cost) {
+      return { valid: false, reason: 'Insufficient LP', cost };
+    }
 
     return { valid: true, cost };
   }
@@ -335,13 +270,36 @@ export class UpgradeStorage {
    */
   clearCache() {
     this.cache.clear();
+    console.log('🧹 [UPGRADES] Cache cleared');
   }
 
-  // Force schema re-initialization (for admin endpoints)
-  forceSchemaRefresh() {
-    UpgradeStorage.schemaInitialized = false;
-    UpgradeStorage.lastSchemaCheck = 0;
-    UpgradeStorage.schemaInFlight = null;
-    this.cache.clear();
+  // Get upgrade categories for admin/debug
+  async getUpgradeCategories(): Promise<Record<string, Upgrade[]>> {
+    const allUpgrades = await this.getAllUpgrades();
+    const categories: Record<string, Upgrade[]> = {};
+
+    for (const upgrade of allUpgrades) {
+      if (!categories[upgrade.category]) {
+        categories[upgrade.category] = [];
+      }
+      categories[upgrade.category].push(upgrade);
+    }
+
+    return categories;
+  }
+
+  // Debug info
+  async getDebugInfo(): Promise<any> {
+    const allUpgrades = await this.getAllUpgrades();
+    const categories = await this.getUpgradeCategories();
+    
+    return {
+      totalUpgrades: allUpgrades.length,
+      categories: Object.keys(categories).map(cat => ({
+        name: cat,
+        count: categories[cat].length
+      })),
+      cacheSize: this.cache.size
+    };
   }
 }
