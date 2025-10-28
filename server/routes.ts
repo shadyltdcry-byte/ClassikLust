@@ -24,6 +24,8 @@ import { registerApiDocRoutes } from './routes/apiDocRoutes.js';
 import { registerAdminRoutes as registerAdminAdditions } from './routes/adminRoutes.additions.js';
 import adminRoutes from './routes/admin';
 import debugRoutes from './routes/debug';
+import gameExtrasRoutes from './routes/gameExtrasRoutes.js';
+import { registerMediaRoutes } from './routes/mediaRoutes.js';
 
 /**
  * 🚀 SYSTEM PREFLIGHT CHECK
@@ -152,6 +154,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerUserRoutes(app);
   registerStatsRoutes(app);
   
+  // Media management routes
+  registerMediaRoutes(app);
+  console.log('🖼️ [MEDIA] Media management routes registered');
+  
   // Game systems with guards
   app.use('/api/tasks*', createFeatureGuard('tasks', 'Task System'));
   registerTaskRoutes(app); // Task system with progress tracking
@@ -168,6 +174,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerWheelRoutes(app);
   registerVipRoutes(app);
   registerDebugRoutes(app);
+
+  // 🆕 NEW: Game extras (offline claim, admin upgrades) - NO PACKAGE.JSON CHANGES
+  app.use(gameExtrasRoutes);
+  console.log('⏱️ [EXTRAS] Offline claim and admin upgrade routes registered');
 
   // SPA fallback route - MUST come after all API routes
   app.get('*', (req, res) => {
@@ -205,6 +215,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`🔧 [ADMIN] Admin control panel at /api/admin/* (token required)`);
     console.log(`🚫 [GUARDS] Feature flags protecting ${totalFeatures} systems`);
     console.log(`✅ [STATUS] ${healthyFeatures}/${totalFeatures} systems operational`);
+    console.log(`⏱️ [OFFLINE] Offline claim system active`);
+    console.log(`📈 [UPGRADES] Admin upgrade management active`);
     console.log(`🎆 ==============================================\n`);
     
     // Show any disabled features as warnings
