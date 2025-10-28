@@ -1,20 +1,11 @@
 /**
  * FileManagerCore.tsx - Media management UI
- * Last Edited: 2025-08-17 by Steven
+ * Last Edited: 2025-10-28 by Assistant - Added Cropper512 and poses support
  *
- *
- * Verify CRUD for media, character assignments,
- * NSFW/VIP tags
- *
- * ⚠️ DO Not ADD LOGIC TO GAME.TSX
- */
-
-/**
- * FileManagerCore.tsx - Media management UI
- * Last Edited: 2025-08-18 by Assistant
- *
- * Fixed schema imports, added proper error handling,
- * improved UI components, and added character assignment functionality
+ * ✂️ NEW: True cropping with react-easy-crop for 512x512 output
+ * 🎨 NEW: Poses system with reusable tags
+ * 📤 FIXED: Upload saves all metadata on first insert
+ * 🔄 FIXED: UI refreshes after save to show correct values
  *
  * ⚠️ DO Not ADD LOGIC TO GAME.TSX
  */
@@ -33,7 +24,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'react-hot-toast';
-import { Crop, ZoomIn, ZoomOut } from 'lucide-react';
+import { Crop, ZoomIn, ZoomOut, X, Plus } from 'lucide-react';
+import Cropper512 from '@/components/Cropper512';
 
 interface FileManagerCoreProps {
   onClose?: () => void;
@@ -46,25 +38,28 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
   const [editingFile, setEditingFile] = useState<MediaFile | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   
-  // Cropping state
+  // ✂️ TRUE CROPPER STATE
   const [showCropDialog, setShowCropDialog] = useState(false);
-  const [cropImage, setCropImage] = useState<string | null>(null);
-  const [cropFile, setCropFile] = useState<File | null>(null);
-  const [cropScale, setCropScale] = useState(1);
-  const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 });
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
+  const [croppedFile, setCroppedFile] = useState<File | null>(null);
+
+  // 🎨 POSES STATE
+  const [availablePoses, setAvailablePoses] = useState<string[]>(['sitting', 'standing', 'casual', 'formal', 'bikini', 'dress']);
+  const [newPose, setNewPose] = useState('');
 
   // Upload configuration state
   const [uploadConfig, setUploadConfig] = useState({
     characterId: '',
+    name: '',
     mood: '',
+    poses: [] as string[], // 🆕 NEW
     requiredLevel: 1,
     isVip: false,
     isNsfw: false,
     isEvent: false,
     randomSendChance: 5,
-    category: 'Character', // New category field
-    enabledForChat: true // Default enabled for chat sending
+    category: 'Character',
+    enabledForChat: true
   });
 
   const queryClient = useQueryClient();
@@ -87,48 +82,129 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     },
   });
 
-  // Upload mutation
-    const uploadMutation = useMutation({
-      mutationFn: async (formData: FormData) => {
-        const response = await fetch('/api/media/upload', {
-          method: 'POST',
-          body: formData,
-        });
+  // 📤 FIXED UPLOAD: Use new /api/media/upload endpoint with metadata
+  const uploadMutation = useMutation({
+    mutationFn: async (uploadData: {
+      file: File;
+      metadata: any;
+    }) => {
+      console.log('📤 [UPLOAD] Starting upload with metadata:', uploadData.metadata);
+      
+      // First upload the file to storage (your existing upload logic)
+      const formData = new FormData();
+      formData.append('file', uploadData.file);
+      
+      const uploadResponse = await fetch('/api/media/upload-file', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error(`File upload failed: ${uploadResponse.status}`);
+      }
+      
+      const uploadResult = await uploadResponse.json();
+      console.log('📤 [UPLOAD] File uploaded:', uploadResult);
+      
+      // Then save with metadata using new endpoint
+      const metadata = {
+        fileName: uploadData.file.name,
+        filePath: uploadResult.filePath || uploadResult.url,
+        fileType: 'image',
+        ...uploadData.metadata,
+        poses: uploadData.metadata.poses || [] // Ensure poses is array
+      };
+      
+      console.log('📤 [UPLOAD] Saving metadata:', metadata);
+      
+      const metadataResponse = await fetch('/api/media/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(metadata),
+      });
 
-        if (!response.ok) {
-          throw new Error(`Upload failed: ${response.status}`);
-        }
+      if (!metadataResponse.ok) {
+        const errorText = await metadataResponse.text();
+        throw new Error(`Metadata save failed: ${metadataResponse.status} - ${errorText}`);
+      }
 
-        return await response.json();
-      },
-    onSuccess: (uploadedFiles) => {
+      const result = await metadataResponse.json();
+      console.log('✅ [UPLOAD] Complete:', result);
+      return result;
+    },
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['/api/media'] });
-      toast.success(`Successfully uploaded ${Array.isArray(uploadedFiles) ? uploadedFiles.length : 1} file(s)`);
+      toast.success('✅ File uploaded with metadata!');
       setUploadProgress(0);
       setSelectedFiles([]);
-      refetch(); // Ensure the list is refreshed
+      setCroppedFile(null);
+      // Reset upload config
+      setUploadConfig({
+        characterId: '',
+        name: '',
+        mood: '',
+        poses: [],
+        requiredLevel: 1,
+        isVip: false,
+        isNsfw: false,
+        isEvent: false,
+        randomSendChance: 5,
+        category: 'Character',
+        enabledForChat: true
+      });
+      refetch();
     },
     onError: (error) => {
-      console.error('Upload failed:', error);
-      toast.error('Upload failed. Please try again.');
+      console.error('❌ [UPLOAD] Failed:', error);
+      toast.error(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setUploadProgress(0);
     },
   });
 
-  // Update file metadata mutation
+  // 🔄 FIXED UPDATE: Include poses and refresh after save
   const updateFileMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<MediaFile> }) => {
-      const response = await apiRequest('PUT', `/api/media/${id}`, updates);
+    mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
+      console.log('📝 [EDIT] Updating file:', id, updates);
+      
+      const response = await fetch(`/api/media/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Update failed: ${response.status} - ${errorText}`);
+      }
+      
       return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (result, { id }) => {
+      console.log('✅ [EDIT] Update successful:', result);
+      
+      // Refresh the file data to show updated values
+      try {
+        const refreshResponse = await fetch(`/api/media/file/${id}`);
+        if (refreshResponse.ok) {
+          const refreshedFile = await refreshResponse.json();
+          setEditingFile(refreshedFile.data || refreshedFile);
+          console.log('🔄 [EDIT] File data refreshed');
+        }
+      } catch (error) {
+        console.warn('⚠️ [EDIT] Could not refresh file data:', error);
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['/api/media'] });
-      toast.success('File updated successfully');
+      toast.success('✅ Metadata updated!');
       setEditingFile(null);
     },
     onError: (error) => {
-      console.error('Update failed:', error);
-      toast.error('Failed to update file');
+      console.error('❌ [EDIT] Update failed:', error);
+      toast.error(`Update failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     },
   });
 
@@ -156,10 +232,6 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     }
   }, [mediaFiles]);
 
-  /**
-   * Organizes media files into folders based on their properties
-   * Creates a hierarchical structure for better file management
-   */
   const organizeFilesByCategory = (files: MediaFile[]) => {
     const folders: Record<string, MediaFile[]> = {};
     files.forEach((file) => {
@@ -170,10 +242,6 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     setFolderStructure(folders);
   };
 
-  /**
-   * Generates folder name based on file properties
-   * Creates a consistent naming convention for organization
-   */
   const getFolderName = (file: MediaFile): string => {
     const parts = [];
     if (file.characterId) {
@@ -187,140 +255,114 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     return parts.join('/') || 'Uncategorized';
   };
 
-  /**
-   * Handles file upload with progress tracking
-   * Supports multiple file selection and validation
-   * Shows crop dialog for images
-   */
+  // ✂️ FILE SELECTION WITH CROPPER
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      const files = Array.from(event.target.files);
+    if (event.target.files && event.target.files.length > 0) {
+      const file = event.target.files[0];
       
-      // Show crop dialog for first image
-      if (files.length > 0 && files[0].type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setCropImage(e.target?.result as string);
-          setCropFile(files[0]);
-          setShowCropDialog(true);
-        };
-        reader.readAsDataURL(files[0]);
+      if (file.type.startsWith('image/')) {
+        // Show cropper for images
+        const imageUrl = URL.createObjectURL(file);
+        setCropImageUrl(imageUrl);
+        setShowCropDialog(true);
       } else {
-        setSelectedFiles(files);
+        // For non-images, use directly
+        setSelectedFiles([file]);
+        toast.success('File selected. Configure metadata and upload.');
       }
     }
   };
 
-  /**
-   * Handles cropping completion
-   * Converts canvas to blob and creates cropped file
-   */
-  const handleCropComplete = useCallback(() => {
-    if (!canvasRef.current || !cropImage || !cropFile) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const img = new window.Image();
-    
-    img.onload = () => {
-      // Set canvas size to 512x512
-      canvas.width = 512;
-      canvas.height = 512;
-
-      // Clear canvas
-      ctx.clearRect(0, 0, 512, 512);
-
-      // Calculate dimensions for cropping
-      const scale = cropScale;
-      const sourceWidth = img.width / scale;
-      const sourceHeight = img.height / scale;
-      
-      // Calculate source position with pan offset
-      const sourceX = Math.max(0, Math.min((img.width - sourceWidth) / 2 - cropPosition.x, img.width - sourceWidth));
-      const sourceY = Math.max(0, Math.min((img.height - sourceHeight) / 2 - cropPosition.y, img.height - sourceHeight));
-
-      // Draw the cropped and scaled image
-      ctx.drawImage(
-        img,
-        sourceX,
-        sourceY,
-        sourceWidth,
-        sourceHeight,
-        0,
-        0,
-        512,
-        512
-      );
-
-      // Convert to blob
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const croppedFile = new File([blob], cropFile.name, {
-            type: 'image/jpeg',
-            lastModified: Date.now()
-          });
-          setSelectedFiles([croppedFile]);
-          setShowCropDialog(false);
-          setCropImage(null);
-          setCropFile(null);
-          setCropScale(1);
-          setCropPosition({ x: 0, y: 0 });
-          
-          toast.success('Image cropped successfully! Ready to upload.');
-        }
-      }, 'image/jpeg', 0.95);
-    };
-    
-    img.onerror = () => {
-      toast.error('Failed to load image for cropping');
-    };
-    
-    img.src = cropImage;
-  }, [cropImage, cropFile, cropScale, cropPosition]);
-
-  const handleSubmitUpload = async () => {
-    if (selectedFiles.length === 0) {
-      toast.error('No files selected');
-      return;
+  // ✂️ CROPPER COMPLETION
+  const handleCropComplete = (croppedFile: File) => {
+    console.log('✂️ [CROP] Crop completed:', croppedFile);
+    setCroppedFile(croppedFile);
+    setSelectedFiles([croppedFile]);
+    setShowCropDialog(false);
+    if (cropImageUrl) {
+      URL.revokeObjectURL(cropImageUrl);
+      setCropImageUrl(null);
     }
-
-    // Validate file types - support all common image and video formats
-    const validFiles = selectedFiles.filter(file => {
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm', 'video/mov', 'video/avi'];
-      return validTypes.includes(file.type);
-    });
-
-    if (validFiles.length !== selectedFiles.length) {
-      toast.error('Some files were skipped due to invalid format');
-    }
-
-    if (validFiles.length === 0) {
-      toast.error('No valid files selected');
-      return;
-    }
-
-    const formData = new FormData();
-    validFiles.forEach((file) => {
-      formData.append('files', file);
-    });
-
-    // Add upload configuration
-    formData.append('config', JSON.stringify(uploadConfig));
-
-    setUploadProgress(10); // Set initial progress to give feedback
-    // Simulate upload progress for demonstration if needed, otherwise rely on backend for actual progress
-    // For actual progress, you'd need to use a library that supports upload progress events with fetch or Axios
-    // For now, we'll just call the mutation
-    uploadMutation.mutate(formData);
+    toast.success('✂️ Image cropped! Configure metadata and upload.');
   };
 
+  // ✂️ CROPPER CANCEL
+  const handleCropCancel = () => {
+    setShowCropDialog(false);
+    if (cropImageUrl) {
+      URL.revokeObjectURL(cropImageUrl);
+      setCropImageUrl(null);
+    }
+    setCroppedFile(null);
+    setSelectedFiles([]);
+  };
 
-  /**
-   * Renders appropriate preview based on file type
-   * Handles images, videos, and GIFs with proper styling
-   */
+  // 🎨 POSES MANAGEMENT
+  const addPose = () => {
+    const pose = newPose.trim().toLowerCase();
+    if (!pose) return;
+    
+    if (!availablePoses.includes(pose)) {
+      setAvailablePoses([...availablePoses, pose]);
+    }
+    
+    if (!uploadConfig.poses.includes(pose)) {
+      setUploadConfig(prev => ({
+        ...prev,
+        poses: [...prev.poses, pose]
+      }));
+    }
+    
+    setNewPose('');
+  };
+
+  const removePose = (pose: string) => {
+    setUploadConfig(prev => ({
+      ...prev,
+      poses: prev.poses.filter(p => p !== pose)
+    }));
+  };
+
+  const togglePose = (pose: string) => {
+    if (uploadConfig.poses.includes(pose)) {
+      removePose(pose);
+    } else {
+      setUploadConfig(prev => ({
+        ...prev,
+        poses: [...prev.poses, pose]
+      }));
+    }
+  };
+
+  // 📤 SUBMIT UPLOAD
+  const handleSubmitUpload = async () => {
+    const fileToUpload = croppedFile || selectedFiles[0];
+    if (!fileToUpload) {
+      toast.error('No file selected');
+      return;
+    }
+
+    const metadata = {
+      characterId: uploadConfig.characterId || null,
+      name: uploadConfig.name || null,
+      mood: uploadConfig.mood || null,
+      poses: uploadConfig.poses,
+      category: uploadConfig.category,
+      isNsfw: uploadConfig.isNsfw,
+      isVip: uploadConfig.isVip,
+      isEvent: uploadConfig.isEvent,
+      enabledForChat: uploadConfig.enabledForChat,
+      randomSendChance: uploadConfig.randomSendChance,
+      requiredLevel: uploadConfig.requiredLevel,
+      autoOrganized: false
+    };
+
+    console.log('📤 [UPLOAD] Submitting:', { file: fileToUpload.name, metadata });
+    setUploadProgress(50);
+    
+    uploadMutation.mutate({ file: fileToUpload, metadata });
+  };
+
   const renderMediaPreview = (file: MediaFile, size: 'thumbnail' | 'full' = 'thumbnail') => {
     const maxWidth = size === 'thumbnail' ? '150px' : '100%';
     const maxHeight = size === 'thumbnail' ? '150px' : '400px';
@@ -332,25 +374,21 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
       borderRadius: '8px',
     };
 
-    // Handle consistent fileName field
     const fileName = file.fileName || '';
-
-    // Handle consistent filePath field
     const filePath = file.filePath;
     const fileUrl = filePath?.startsWith('http')
-      ? filePath // External URL (e.g., Supabase storage)
+      ? filePath
       : filePath?.startsWith('/api/')
-        ? filePath // Already an API path
+        ? filePath
         : filePath?.startsWith('/')
           ? filePath
           : filePath
-            ? `/api/media/file/${filePath}` // Use API endpoint for file serving
+            ? `/api/media/file/${filePath}`
             : fileName
               ? `/api/media/file/${fileName}`
               : '/uploads/placeholder-character.jpg';
     const fileExt = fileName.toLowerCase().split('.').pop() || '';
 
-    // Better file type detection - check fileType field and filename extension
     const isImage = file.fileType === 'image' ||
                    file.fileType === 'gif' ||
                    ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(fileExt);
@@ -367,7 +405,6 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
           onError={(e) => {
             console.log('Image failed to load:', fileUrl, 'File details:', file);
             const img = e.target as HTMLImageElement;
-            // Try alternative paths
             if (!img.src.includes('placeholder')) {
               img.src = '/uploads/placeholder-character.jpg';
             }
@@ -389,50 +426,62 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     );
   };
 
-  /**
-   * Updates file metadata including character assignment and tags
-   */
-  const handleFileUpdate = (updates: Partial<MediaFile>) => {
-    if (editingFile) {
-      updateFileMutation.mutate({
-        id: editingFile.id,
-        updates,
-      });
+  // 🔄 FIXED EDIT: Load existing poses and update with poses support
+  const handleEditFile = async (file: MediaFile) => {
+    console.log('📝 [EDIT] Loading file for edit:', file.id);
+    
+    try {
+      // Fetch fresh file data to get current poses
+      const response = await fetch(`/api/media/file/${file.id}`);
+      if (response.ok) {
+        const freshFile = await response.json();
+        const fileData = freshFile.data || freshFile;
+        
+        console.log('📝 [EDIT] Fresh file data:', fileData);
+        
+        // Ensure poses is an array
+        if (fileData.poses && typeof fileData.poses === 'string') {
+          try {
+            fileData.poses = JSON.parse(fileData.poses);
+          } catch {
+            fileData.poses = [];
+          }
+        }
+        
+        setEditingFile({
+          ...fileData,
+          poses: fileData.poses || []
+        });
+      } else {
+        setEditingFile(file);
+      }
+    } catch (error) {
+      console.warn('⚠️ [EDIT] Could not fetch fresh file data:', error);
+      setEditingFile(file);
     }
   };
 
-  const handleSaveMetadata = async () => {
+  // 🔄 SAVE EDIT WITH POSES
+  const handleSaveEdit = () => {
     if (!editingFile) return;
 
-    try {
-      console.log('[FileManagerCore] Saving metadata for:', editingFile.id);
+    const updates = {
+      characterId: editingFile.characterId,
+      name: editingFile.name,
+      mood: editingFile.mood,
+      poses: editingFile.poses || [], // 🆕 Include poses
+      category: editingFile.category,
+      isNsfw: editingFile.isNsfw,
+      isVip: editingFile.isVip,
+      isEvent: editingFile.isEvent,
+      enabledForChat: editingFile.enabledForChat,
+      randomSendChance: editingFile.randomSendChance,
+      requiredLevel: editingFile.requiredLevel,
+    };
 
-      // Use consistent camelCase field names
-      const updates = {
-        characterId: editingFile.characterId,
-        mood: editingFile.mood,
-        pose: editingFile.pose,
-        category: editingFile.category,
-        isNsfw: editingFile.isNsfw,
-        isVip: editingFile.isVip,
-        isEvent: editingFile.isEvent,
-        enabledForChat: editingFile.enabledForChat,
-        randomSendChance: editingFile.randomSendChance,
-      };
-
-      console.log('[FileManagerCore] Sending updates:', updates);
-
-      await updateFileMutation.mutateAsync({ // Changed to use updateFileMutation
-        id: editingFile.id,
-        updates
-      });
-
-      setEditingFile(null);
-    } catch (error) {
-      console.error('[FileManagerCore] Failed to save metadata:', error);
-    }
+    console.log('📝 [EDIT] Saving updates:', updates);
+    updateFileMutation.mutate({ id: editingFile.id, updates });
   };
-
 
   if (filesLoading) {
     return <div className="flex justify-center p-8">Loading media files...</div>;
@@ -448,6 +497,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
           </Button>
         </div>
       )}
+      
       <div className="text-center">
         <h1 className="text-3xl font-bold text-white mb-2">Media Manager</h1>
         <p className="text-gray-400">Upload, organize, and manage your character media files</p>
@@ -458,7 +508,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
         <CardHeader>
           <CardTitle className="text-white">Upload Media Files</CardTitle>
           <CardDescription className="text-gray-400">
-            Supported formats: JPEG, PNG, GIF, MP4, WebM
+            Supported formats: JPEG, PNG, GIF, MP4, WebM. Images will be cropped to 512x512.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -468,12 +518,16 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
               <Label className="text-white mb-2 block">Select Files</Label>
               <Input
                 type="file"
-                multiple
                 onChange={handleFileUpload}
                 accept="image/*,video/*,image/gif"
                 className="bg-gray-700 border-gray-600 text-white file:bg-purple-600 file:text-white file:border-none file:rounded"
                 disabled={uploadMutation.isPending}
               />
+              {selectedFiles.length > 0 && (
+                <p className="text-green-400 text-sm mt-2">
+                  ✅ Selected: {selectedFiles[0].name} ({Math.round(selectedFiles[0].size / 1024)}KB)
+                </p>
+              )}
             </div>
 
             {/* Upload Configuration */}
@@ -498,7 +552,6 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                 </Select>
               </div>
 
-              {/* Category Dropdown */}
               <div>
                 <Label className="text-white">Content Category</Label>
                 <Select
@@ -516,6 +569,16 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                     <SelectItem value="Other" className="text-white">Other</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div>
+                <Label className="text-white">Name (Optional)</Label>
+                <Input
+                  value={uploadConfig.name}
+                  onChange={(e) => setUploadConfig(prev => ({ ...prev, name: e.target.value }))}
+                  className="bg-gray-700 border-gray-600 text-white"
+                  placeholder="Custom name for this file"
+                />
               </div>
 
               <div>
@@ -564,93 +627,113 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
               </div>
             </div>
 
-            {/* Professional Settings Panel */}
+            {/* 🆕 NEW: POSES SECTION */}
             <div className="bg-gray-800/80 border border-gray-600 rounded-lg p-4">
-              <h3 className="text-white text-sm font-semibold mb-3 text-gray-300">Upload Settings</h3>
+              <h3 className="text-white text-sm font-semibold mb-3">🎨 Poses</h3>
+              
+              {/* Add new pose */}
+              <div className="flex gap-2 mb-3">
+                <Input
+                  value={newPose}
+                  onChange={(e) => setNewPose(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && addPose()}
+                  className="bg-gray-700 border-gray-600 text-white"
+                  placeholder="Add a pose (e.g., sitting, bikini)"
+                />
+                <Button
+                  onClick={addPose}
+                  className="bg-purple-600 hover:bg-purple-700"
+                  disabled={!newPose.trim()}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              {/* Available poses */}
+              <div className="flex flex-wrap gap-2">
+                {availablePoses.map(pose => (
+                  <button
+                    key={pose}
+                    onClick={() => togglePose(pose)}
+                    className={`px-2 py-1 rounded text-xs transition-colors ${
+                      uploadConfig.poses.includes(pose)
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                    }`}
+                  >
+                    {pose}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Selected poses */}
+              {uploadConfig.poses.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-gray-400 mb-1">Selected poses:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {uploadConfig.poses.map(pose => (
+                      <span
+                        key={pose}
+                        className="bg-purple-600 text-white px-2 py-1 rounded text-xs flex items-center gap-1"
+                      >
+                        {pose}
+                        <X
+                          className="w-3 h-3 cursor-pointer hover:text-red-300"
+                          onClick={() => removePose(pose)}
+                        />
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
+            {/* Settings Panel */}
+            <div className="bg-gray-800/80 border border-gray-600 rounded-lg p-4">
+              <h3 className="text-white text-sm font-semibold mb-3">Upload Settings</h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded border border-gray-600">
                   <div>
                     <span className="text-white text-sm font-medium">VIP Content</span>
                     <p className="text-gray-400 text-xs">Requires premium access</p>
                   </div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={uploadConfig.isVip}
-                      onChange={(e) => setUploadConfig(prev => ({ ...prev, isVip: e.target.checked }))}
-                      className="w-4 h-4 mr-2 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
-                    />
-                    <span className="text-sm text-gray-300">{uploadConfig.isVip ? 'ON' : 'OFF'}</span>
-                  </label>
+                  <Switch
+                    checked={uploadConfig.isVip}
+                    onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, isVip: checked }))}
+                  />
                 </div>
-
                 <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded border border-gray-600">
                   <div>
                     <span className="text-white text-sm font-medium">NSFW Content</span>
                     <p className="text-gray-400 text-xs">18+ Content</p>
                   </div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={uploadConfig.isNsfw}
-                      onChange={(e) => setUploadConfig(prev => ({ ...prev, isNsfw: e.target.checked }))}
-                      className="w-4 h-4 mr-2 text-red-600 bg-gray-700 border-gray-600 rounded focus:ring-red-500"
-                    />
-                    <span className="text-sm text-gray-300">{uploadConfig.isNsfw ? 'ON' : 'OFF'}</span>
-                  </label>
+                  <Switch
+                    checked={uploadConfig.isNsfw}
+                    onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, isNsfw: checked }))}
+                  />
                 </div>
-
                 <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded border border-gray-600">
                   <div>
                     <span className="text-white text-sm font-medium">Chat Sending</span>
                     <p className="text-gray-400 text-xs">Enable for chat</p>
                   </div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={uploadConfig.enabledForChat}
-                      onChange={(e) => setUploadConfig(prev => ({ ...prev, enabledForChat: e.target.checked }))}
-                      className="w-4 h-4 mr-2 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
-                      data-testid="checkbox-chat-sending"
-                    />
-                    <span className="text-sm text-gray-300">{uploadConfig.enabledForChat ? 'ON' : 'OFF'}</span>
-                  </label>
+                  <Switch
+                    checked={uploadConfig.enabledForChat}
+                    onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, enabledForChat: checked }))}
+                  />
                 </div>
-
                 <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded border border-gray-600">
                   <div>
                     <span className="text-white text-sm font-medium">⭐ Event Content</span>
                     <p className="text-gray-400 text-xs">Special event media</p>
                   </div>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={uploadConfig.isEvent}
-                      onChange={(e) => setUploadConfig(prev => ({ ...prev, isEvent: e.target.checked }))}
-                      className="w-4 h-4 mr-2 text-yellow-600 bg-gray-700 border-gray-600 rounded focus:ring-yellow-500"
-                      data-testid="checkbox-event-content"
-                    />
-                    <span className="text-sm text-gray-300">{uploadConfig.isEvent ? 'ON' : 'OFF'}</span>
-                  </label>
+                  <Switch
+                    checked={uploadConfig.isEvent}
+                    onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, isEvent: checked }))}
+                  />
                 </div>
               </div>
             </div>
-
-            {/* Selected Files Preview */}
-            {selectedFiles.length > 0 && (
-              <div className="text-sm text-gray-300 p-3 bg-gray-700/50 rounded-lg">
-                <p className="font-medium mb-2">Selected Files ({selectedFiles.length}):</p>
-                <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {selectedFiles.map((file, index) => (
-                    <div key={index} className="flex justify-between items-center">
-                      <span className="truncate">{file.name}</span>
-                      <span className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Upload Button */}
             <Button
@@ -658,7 +741,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
               className="bg-purple-600 hover:bg-purple-700 text-white w-full"
               disabled={uploadMutation.isPending || selectedFiles.length === 0}
             >
-              {uploadMutation.isPending ? 'Uploading...' : selectedFiles.length > 0 ? `Upload ${selectedFiles.length} File${selectedFiles.length !== 1 ? 's' : ''}` : 'Choose Files First'}
+              {uploadMutation.isPending ? 'Uploading...' : selectedFiles.length > 0 ? '📤 Upload with Metadata' : 'Choose Files First'}
             </Button>
 
             {/* Upload Progress */}
@@ -705,6 +788,12 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                         )}
                         {file.mood && (
                           <span className="text-xs bg-blue-600 text-white px-1 rounded">{file.mood}</span>
+                        )}
+                        {/* 🆕 NEW: Show poses */}
+                        {file.poses && Array.isArray(file.poses) && file.poses.length > 0 && (
+                          <span className="text-xs bg-purple-600 text-white px-1 rounded">
+                            🎨{file.poses.length}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -757,7 +846,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
 
       {/* File Details Modal */}
       {selectedFile && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" data-testid="modal-file-details">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <Card className="bg-gray-800 border-gray-600 max-w-4xl w-full max-h-[90vh] flex flex-col">
             <CardHeader className="pb-3 pt-6">
               <div className="flex justify-between items-start gap-4">
@@ -766,9 +855,8 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                 </CardTitle>
                 <div className="flex gap-2 flex-shrink-0">
                   <Button
-                    onClick={() => setEditingFile(selectedFile)}
+                    onClick={() => handleEditFile(selectedFile)}
                     className="bg-purple-600 hover:bg-purple-700"
-                    data-testid="button-edit-file"
                   >
                     Edit
                   </Button>
@@ -776,7 +864,6 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                     onClick={() => deleteMutation.mutate(selectedFile.id)}
                     variant="destructive"
                     disabled={deleteMutation.isPending}
-                    data-testid="button-delete-file"
                   >
                     Delete
                   </Button>
@@ -784,7 +871,6 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                     onClick={() => setSelectedFile(null)}
                     variant="outline"
                     className="border-gray-600 text-white"
-                    data-testid="button-close-modal"
                   >
                     Close
                   </Button>
@@ -807,15 +893,28 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                 <div>Event: {selectedFile.isEvent ? 'Yes' : 'No'}</div>
                 <div>Chat Enabled: {selectedFile.enabledForChat ? 'Yes' : 'No'}</div>
               </div>
+              {/* 🆕 NEW: Show poses in details */}
+              {selectedFile.poses && Array.isArray(selectedFile.poses) && selectedFile.poses.length > 0 && (
+                <div>
+                  <p className="text-sm text-gray-300 mb-2">🎨 Poses:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedFile.poses.map((pose: string) => (
+                      <span key={pose} className="bg-purple-600 text-white px-2 py-1 rounded text-xs">
+                        {pose}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Edit File Modal */}
+      {/* 🔄 UPDATED: Edit Modal with Poses Support */}
       {editingFile && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <Card className="bg-gray-800 border-gray-600 max-w-2xl w-full max-h-[80vh] flex flex-col">
+          <Card className="bg-gray-800 border-gray-600 max-w-2xl w-full max-h-[90vh] flex flex-col">
             <CardHeader>
               <CardTitle className="text-white">Edit File Metadata</CardTitle>
             </CardHeader>
@@ -824,7 +923,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                 <Label className="text-white">Assign to Character</Label>
                 <Select
                   value={editingFile.characterId || ''}
-                  onValueChange={(value) => setEditingFile({...editingFile, characterId: value || null})} // Ensure it's null if empty for backend
+                  onValueChange={(value) => setEditingFile({...editingFile, characterId: value || null})}
                 >
                   <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
                     <SelectValue placeholder="Select character" />
@@ -840,8 +939,79 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                 </Select>
               </div>
 
+              <div>
+                <Label className="text-white">Name</Label>
+                <Input
+                  value={editingFile.name || ''}
+                  onChange={(e) => setEditingFile({...editingFile, name: e.target.value})}
+                  className="bg-gray-700 border-gray-600 text-white"
+                  placeholder="Custom name for this file"
+                />
+              </div>
 
+              <div>
+                <Label className="text-white">Mood</Label>
+                <Select
+                  value={editingFile.mood || ''}
+                  onValueChange={(value) => setEditingFile({...editingFile, mood: value || null})}
+                >
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                    <SelectValue placeholder="Select mood" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-700 border-gray-600">
+                    <SelectItem value="">No mood</SelectItem>
+                    <SelectItem value="normal" className="text-white">Normal</SelectItem>
+                    <SelectItem value="happy" className="text-white">Happy</SelectItem>
+                    <SelectItem value="flirty" className="text-white">Flirty</SelectItem>
+                    <SelectItem value="playful" className="text-white">Playful</SelectItem>
+                    <SelectItem value="mysterious" className="text-white">Mysterious</SelectItem>
+                    <SelectItem value="shy" className="text-white">Shy</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
+              {/* 🆕 NEW: Edit Poses */}
+              <div>
+                <Label className="text-white mb-2 block">🎨 Poses</Label>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {availablePoses.map(pose => {
+                      const isSelected = editingFile.poses?.includes(pose) || false;
+                      return (
+                        <button
+                          key={pose}
+                          onClick={() => {
+                            const currentPoses = editingFile.poses || [];
+                            if (isSelected) {
+                              setEditingFile({
+                                ...editingFile,
+                                poses: currentPoses.filter(p => p !== pose)
+                              });
+                            } else {
+                              setEditingFile({
+                                ...editingFile,
+                                poses: [...currentPoses, pose]
+                              });
+                            }
+                          }}
+                          className={`px-2 py-1 rounded text-xs transition-colors ${
+                            isSelected
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                          }`}
+                        >
+                          {pose}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {editingFile.poses && editingFile.poses.length > 0 && (
+                    <p className="text-xs text-gray-400">
+                      Selected: {editingFile.poses.join(', ')}
+                    </p>
+                  )}
+                </div>
+              </div>
 
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
@@ -849,7 +1019,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                     checked={editingFile.isVip || false}
                     onCheckedChange={(checked) => setEditingFile({...editingFile, isVip: checked})}
                   />
-                  <Label className="text-white">💎VIP Content</Label>
+                  <Label className="text-white">💸VIP Content</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Switch
@@ -908,11 +1078,11 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleSaveMetadata} // Changed to call handleSaveMetadata
+                  onClick={handleSaveEdit}
                   className="bg-purple-600 hover:bg-purple-700"
                   disabled={updateFileMutation.isPending}
                 >
-                  {updateFileMutation.isPending ? 'Saving...' : 'Save Changes'}
+                  {updateFileMutation.isPending ? 'Saving...' : '✅ Save Changes'}
                 </Button>
               </div>
             </CardContent>
@@ -920,81 +1090,14 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
         </div>
       )}
 
-      {/* Crop Dialog */}
-      {showCropDialog && cropImage && (
-        <Dialog open={showCropDialog} onOpenChange={setShowCropDialog}>
-          <DialogContent className="bg-gray-800 border-gray-600 max-w-3xl">
-            <DialogHeader>
-              <DialogTitle className="text-white flex items-center gap-2">
-                <Crop className="w-5 h-5" />
-                Crop Image (512x512)
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              {/* Crop Preview */}
-              <div className="relative w-full h-96 bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center">
-                <img
-                  src={cropImage}
-                  alt="Crop preview"
-                  style={{
-                    transform: `scale(${cropScale}) translate(${cropPosition.x}px, ${cropPosition.y}px)`,
-                    transformOrigin: 'center',
-                    maxWidth: '100%',
-                    maxHeight: '100%',
-                  }}
-                  className="object-contain"
-                  data-testid="img-crop-preview"
-                />
-              </div>
-
-              {/* Zoom Controls */}
-              <div className="space-y-2">
-                <Label className="text-white flex items-center gap-2">
-                  <ZoomIn className="w-4 h-4" />
-                  Zoom: {cropScale.toFixed(1)}x
-                </Label>
-                <Slider
-                  value={[cropScale]}
-                  onValueChange={([value]) => setCropScale(value)}
-                  min={1}
-                  max={3}
-                  step={0.1}
-                  className="w-full"
-                  data-testid="slider-crop-zoom"
-                />
-              </div>
-
-              {/* Hidden Canvas for Processing */}
-              <canvas ref={canvasRef} className="hidden" />
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 justify-end">
-                <Button
-                  onClick={() => {
-                    setShowCropDialog(false);
-                    setCropImage(null);
-                    setCropFile(null);
-                    setCropScale(1);
-                    setCropPosition({ x: 0, y: 0 });
-                  }}
-                  variant="outline"
-                  className="border-gray-600 text-white"
-                  data-testid="button-cancel-crop"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCropComplete}
-                  className="bg-purple-600 hover:bg-purple-700"
-                  data-testid="button-complete-crop"
-                >
-                  <Crop className="w-4 h-4 mr-2" />
-                  Crop & Continue
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+      {/* ✂️ NEW: Cropper512 Dialog */}
+      {showCropDialog && cropImageUrl && (
+        <Cropper512
+          imageUrl={cropImageUrl}
+          isOpen={showCropDialog}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
       )}
     </div>
   );
