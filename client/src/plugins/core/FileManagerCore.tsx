@@ -1,8 +1,8 @@
 /**
  * FileManagerCore.tsx - Media management UI
- * Last Edited: 2025-10-28 by Assistant - Fixed upload issues and UI
+ * Last Edited: 2025-10-28 by Assistant - Fixed upload to work with adminRoutes
  *
- * ✂️ FIXED: Cropper preserves original filename
+ * ✂️ FIXED: Upload uses correct adminRoutes endpoint with proper FormData
  * ☑️ FIXED: Removed extra text under checkboxes
  * 🎨 FIXED: Better colors and styling
  * 📤 FIXED: Upload saves all metadata on first insert
@@ -85,7 +85,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     },
   });
 
-  // 📤 FIXED UPLOAD: Use adminRoutes upload endpoint with FormData + JSON metadata
+  // 📤 FIXED UPLOAD: Use adminRoutes upload endpoint with proper FormData
   const uploadMutation = useMutation({
     mutationFn: async (uploadData: {
       file: File;
@@ -93,15 +93,16 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     }) => {
       console.log('📤 [UPLOAD] Starting upload with metadata:', uploadData.metadata);
       
-      // Use the adminRoutes /api/media/upload endpoint with FormData
+      // Create FormData for multipart upload
       const formData = new FormData();
       formData.append('files', uploadData.file);
       
-      // Add metadata as form fields
+      // Add metadata as form fields (matching adminRoutes expectation)
       Object.entries(uploadData.metadata).forEach(([key, value]) => {
         if (key === 'poses' && Array.isArray(value)) {
+          // Send poses as JSON string
           formData.append('poses', JSON.stringify(value));
-        } else {
+        } else if (value !== null && value !== undefined) {
           formData.append(key, String(value));
         }
       });
@@ -111,23 +112,27 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
         console.log(`  ${key}: ${value}`);
       }
       
+      // Use fetch directly to avoid apiRequest JSON handling
       const response = await fetch('/api/media/upload', {
         method: 'POST',
         body: formData,
+        // Don't set Content-Type - let browser set multipart boundary
       });
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ [UPLOAD] Response not ok:', response.status, errorText);
         throw new Error(`Upload failed: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
-      console.log('✅ [UPLOAD] Complete:', result);
+      console.log('✅ [UPLOAD] Success:', result);
       return result;
     },
     onSuccess: (result) => {
+      console.log('✅ [UPLOAD] Upload successful:', result);
       queryClient.invalidateQueries({ queryKey: ['media'] });
-      toast.success('✅ File uploaded with metadata!');
+      toast.success('✅ File uploaded successfully!');
       setUploadProgress(0);
       setSelectedFiles([]);
       setCroppedFile(null);
@@ -160,13 +165,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
       console.log('📝 [EDIT] Updating file:', id, updates);
       
-      const response = await fetch(`/api/media/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
+      const response = await apiRequest('PUT', `/api/media/${id}`, updates);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -177,18 +176,6 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     },
     onSuccess: async (result, { id }) => {
       console.log('✅ [EDIT] Update successful:', result);
-      
-      // Refresh the file data to show updated values
-      try {
-        const refreshResponse = await fetch(`/api/media/file/${id}`);
-        if (refreshResponse.ok) {
-          const refreshedFile = await refreshResponse.json();
-          setEditingFile(refreshedFile.data || refreshedFile);
-          console.log('🔄 [EDIT] File data refreshed');
-        }
-      } catch (error) {
-        console.warn('⚠️ [EDIT] Could not refresh file data:', error);
-      }
       
       queryClient.invalidateQueries({ queryKey: ['media'] });
       toast.success('✅ Metadata updated!');
@@ -344,7 +331,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
       characterId: uploadConfig.characterId || null,
       name: uploadConfig.name || null,
       mood: uploadConfig.mood || null,
-      poses: uploadConfig.poses,
+      poses: uploadConfig.poses, // Send poses array to be JSON-stringified
       category: uploadConfig.category,
       isNsfw: uploadConfig.isNsfw,
       isVip: uploadConfig.isVip,
@@ -356,7 +343,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     };
 
     console.log('📤 [UPLOAD] Submitting:', { file: fileToUpload.name, metadata });
-    setUploadProgress(50);
+    setUploadProgress(25);
     
     uploadMutation.mutate({ file: fileToUpload, metadata });
   };
@@ -430,7 +417,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     
     try {
       // Fetch fresh file data to get current poses
-      const response = await fetch(`/api/media/file/${file.id}`);
+      const response = await apiRequest('GET', `/api/media/file/${file.id}`);
       if (response.ok) {
         const freshFile = await response.json();
         const fileData = freshFile.data || freshFile;
