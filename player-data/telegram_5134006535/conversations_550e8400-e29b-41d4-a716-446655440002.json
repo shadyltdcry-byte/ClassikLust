@@ -4498,5 +4498,21 @@
     "timestamp": "2025-10-28T17:49:56.783Z",
     "type": "text",
     "mood": "alert"
+  },
+  {
+    "id": "luna-alert-1761675051892-rd9iq8ta6",
+    "content": "🌙 Heads up babe, System might need looked at. Luna Error Monitor - Watching for any errors. (6:10:51 PM)",
+    "sender": "character",
+    "timestamp": "2025-10-28T18:10:51.892Z",
+    "type": "text",
+    "mood": "alert"
+  },
+  {
+    "id": "luna-alert-1761675717343-587uipfif",
+    "content": "🌙 Heads up babe, System might need looked at. Luna Error Monitor - Watching for any errors. (6:21:57 PM)",
+    "sender": "character",
+    "timestamp": "2025-10-28T18:21:57.343Z",
+    "type": "text",
+    "mood": "alert"
   }
 ]
