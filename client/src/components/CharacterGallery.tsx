@@ -17,10 +17,12 @@ import {
   Star,
   Crown,
   Sparkles,
-  Image as ImageIcon
+  Image as ImageIcon,
+  User // 🆕 NEW: Icon for set display picture
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
 import type { Character, MediaFile } from "@shared/schema";
 
 interface CharacterGalleryProps {
@@ -40,6 +42,7 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
   const slideshowRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   
   // Fetch characters - using correct endpoint
@@ -77,6 +80,38 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
     staleTime: 0, // Always fetch fresh data
     refetchOnMount: true,
     refetchOnWindowFocus: true
+  });
+
+  // 🆕 NEW: Set display picture mutation
+  const setDisplayPictureMutation = useMutation({
+    mutationFn: async (imagePath: string) => {
+      console.log('🖼️ [GALLERY] Setting display picture:', imagePath);
+      const response = await apiRequest('POST', '/api/user/set-display-picture', {
+        userId: user?.id || userId,
+        imagePath
+      });
+      if (!response.ok) {
+        throw new Error('Failed to set display picture');
+      }
+      return response.json();
+    },
+    onSuccess: (data, imagePath) => {
+      toast({
+        title: "Display Picture Updated!",
+        description: "Your profile picture has been changed.",
+      });
+      // Invalidate auth context to refresh user data
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/player'] });
+    },
+    onError: (error) => {
+      console.error('Error setting display picture:', error);
+      toast({
+        title: "Error",
+        description: "Failed to set display picture. Please try again.",
+        variant: "destructive",
+      });
+    }
   });
 
   // Character selection mutation
@@ -141,6 +176,22 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
       return;
     }
     selectCharacterMutation.mutate(characterId);
+  };
+
+  // 🆕 NEW: Handle set display picture
+  const handleSetDisplayPicture = () => {
+    const currentImage = getCurrentImage();
+    if (!currentImage) {
+      toast({
+        title: "No Image Selected",
+        description: "Please select an image first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const imagePath = getImageUrl(currentImage);
+    setDisplayPictureMutation.mutate(imagePath);
   };
 
   // Slideshow functionality
@@ -337,6 +388,24 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
                         {getCharacterIcon(selectedCharacter)}
                       </h2>
                       <div className="flex gap-1">
+                        {/* 🆕 NEW: Set Display Picture Button */}
+                        {characterImages.length > 0 && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleSetDisplayPicture}
+                            disabled={setDisplayPictureMutation.isPending}
+                            title="Set as display picture"
+                            className="border-purple-400/50 text-purple-400 hover:bg-purple-600/20 px-2"
+                          >
+                            {setDisplayPictureMutation.isPending ? (
+                              <div className="w-3 h-3 animate-spin border border-purple-400 border-t-transparent rounded-full" />
+                            ) : (
+                              <User className="w-3 h-3" />
+                            )}
+                          </Button>
+                        )}
+                        
                         {selectedCharacter.isEnabled && onCharacterSelected && (
                           <Button
                             size="sm"
@@ -373,6 +442,10 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
                     <p className="text-gray-300 text-xs capitalize">
                      Collection •
                       {characterImages.length} image{characterImages.length !== 1 ? 's' : ''}
+                      {/* 🆕 NEW: Display picture hint */}
+                      {characterImages.length > 0 && (
+                        <span className="ml-2 text-purple-400">• Click 👤 to set as display picture</span>
+                      )}
                     </p>
                   </div>
 
