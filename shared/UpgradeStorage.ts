@@ -1,6 +1,6 @@
 /**
  * UpgradeStorage.ts - Pure JSON-First Upgrade System
- * No database table creation - only reads from JSON files and stores user progress in userUpgrades
+ * Fixed to handle Telegram ID to UUID conversion for database operations
  */
 
 import { promises as fs } from 'fs';
@@ -45,6 +45,34 @@ export class UpgradeStorage {
       UpgradeStorage.instance = new UpgradeStorage();
     }
     return UpgradeStorage.instance;
+  }
+
+  /**
+   * 🆔 HELPER: Convert Telegram ID to UUID
+   * Handles both Telegram IDs and direct UUIDs
+   */
+  private async getUserUUID(userId: string): Promise<string> {
+    // If it's already a UUID format, return as-is
+    if (userId.includes('-') && userId.length === 36) {
+      return userId;
+    }
+
+    // If it's a telegram ID, look up the UUID
+    if (userId.startsWith('telegram_')) {
+      const { data } = await this.storage.supabase
+        .from('users')
+        .select('id')
+        .eq('telegramId', userId)
+        .single();
+      
+      if (data?.id) {
+        return data.id;
+      }
+    }
+
+    // Fallback: return original ID (might cause errors but better than crashing)
+    console.warn(`⚠️ Could not convert ${userId} to UUID, using as-is`);
+    return userId;
   }
 
   /**
@@ -161,10 +189,12 @@ export class UpgradeStorage {
    */
   async getUserUpgrades(userId: string): Promise<UserUpgrade[]> {
     try {
+      const actualUserId = await this.getUserUUID(userId);
+      
       const { data, error } = await this.storage.supabase
         .from('userUpgrades')
         .select('upgradeId, level')
-        .eq('userId', userId);
+        .eq('userId', actualUserId);
       
       if (error) {
         console.error('❌ Failed to get user upgrades:', error);
