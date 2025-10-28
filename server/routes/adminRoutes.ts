@@ -10,6 +10,7 @@ import {
   isValidMediaType,
   getFileExtension
 } from '../utils/helpers';
+import { loadUpgradeDefinitions, requireAdmin } from '../utils/adminUtils';
 
 // Initialize storage instance
 const storage = SupabaseStorage.getInstance();
@@ -114,6 +115,20 @@ function normalizeLevelReqWrite(l: any) {
 }
 
 export function registerAdminRoutes(app: Express) {
+
+  // NEW: Admin Upgrade Definitions (from JSON files)
+  app.get('/api/admin/upgrade-definitions', async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    
+    try {
+      const definitions = loadUpgradeDefinitions();
+      console.log(`📦 [ADMIN] Returning ${definitions.length} upgrade definitions from JSON files`);
+      res.json(definitions);
+    } catch (error) {
+      console.error('❌ [ADMIN] Error fetching upgrade definitions:', error);
+      res.status(500).json(createErrorResponse('Failed to fetch upgrade definitions'));
+    }
+  });
 
   // Admin Upgrades - WITH PERSISTENCE VERIFICATION
   app.get('/api/admin/upgrades', async (req: Request, res: Response) => {
@@ -468,5 +483,5 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
-  console.log('✅ Admin routes registered with FULL field normalization and update verification');
+  console.log('✅ Admin routes registered with FULL field normalization and update verification + isAdmin auth guard');
 }
