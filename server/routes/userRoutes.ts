@@ -1,8 +1,9 @@
 /**
  * userRoutes.ts - User Management and Telegram Authentication Routes  
- * Last Edited: 2025-08-28 by Assistant
+ * Last Edited: 2025-10-28 by Assistant - Added display picture functionality
  * 
  * Handles user creation, Telegram authentication, and user data management
+ * NEW: Display picture selection from character gallery for PlayerStatsPanel
  */
 
 import type { Express, Request, Response } from "express";
@@ -34,6 +35,80 @@ if (!global.recentTelegramAuth) {
 }
 
 export function registerUserRoutes(app: Express) {
+
+  // 🇮🇳 NEW: Set display picture from character gallery (for PlayerStatsPanel)
+  app.post('/api/user/set-display-picture', async (req: Request, res: Response) => {
+    try {
+      const { userId, imagePath } = req.body;
+      
+      if (!userId || !imagePath) {
+        return res.status(400).json(createErrorResponse('userId and imagePath are required'));
+      }
+      
+      console.log(`🖼️ [USER] Setting display picture for user ${userId}: ${imagePath}`);
+      
+      // Update user's displayPicture field in database
+      const { data, error } = await storage.supabase
+        .from('users')
+        .update({ displayPicture: imagePath })
+        .eq('id', userId)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('❌ [USER] Database error setting display picture:', error);
+        return res.status(500).json(createErrorResponse('Failed to update display picture'));
+      }
+      
+      console.log('✅ [USER] Display picture updated successfully');
+      
+      res.json(createSuccessResponse({
+        message: 'Display picture updated successfully',
+        displayPicture: imagePath,
+        user: data
+      }));
+      
+    } catch (error) {
+      console.error('❌ [USER] Error setting display picture:', error);
+      res.status(500).json(createErrorResponse('Internal server error'));
+    }
+  });
+  
+  // 🔄 NEW: Reset display picture to default
+  app.post('/api/user/reset-display-picture', async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json(createErrorResponse('userId is required'));
+      }
+      
+      console.log(`🔄 [USER] Resetting display picture for user ${userId}`);
+      
+      const { data, error } = await storage.supabase
+        .from('users')
+        .update({ displayPicture: null })
+        .eq('id', userId)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('❌ [USER] Database error resetting display picture:', error);
+        return res.status(500).json(createErrorResponse('Failed to reset display picture'));
+      }
+      
+      console.log('✅ [USER] Display picture reset to default');
+      
+      res.json(createSuccessResponse({
+        message: 'Display picture reset to default',
+        user: data
+      }));
+      
+    } catch (error) {
+      console.error('❌ [USER] Error resetting display picture:', error);
+      res.status(500).json(createErrorResponse('Internal server error'));
+    }
+  });
 
   // User initialization endpoint
   app.post("/api/user/init", async (req: Request, res: Response) => {
@@ -77,6 +152,30 @@ export function registerUserRoutes(app: Express) {
     } catch (error) {
       console.error('Error in user endpoint:', error);
       res.status(500).json(createErrorResponse('Failed to get user'));
+    }
+  });
+
+  // Get user profile with display picture
+  app.get('/api/user/:userId/profile', async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      
+      const { data, error } = await storage.supabase
+        .from('users')
+        .select('id, username, displayName, displayPicture, level, lp, xp, energy, maxEnergy, telegram')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error('❌ [USER] Database error fetching profile:', error);
+        return res.status(404).json(createErrorResponse('User not found'));
+      }
+      
+      res.json(createSuccessResponse(data));
+      
+    } catch (error) {
+      console.error('❌ [USER] Error fetching user profile:', error);
+      res.status(500).json(createErrorResponse('Internal server error'));
     }
   });
 
@@ -168,7 +267,8 @@ export function registerUserRoutes(app: Express) {
       // Only allow valid user table columns to prevent PGRST204 errors
       const validUserFields = [
         'username', 'level', 'lp', 'energy', 'maxEnergy', 'charisma', 
-        'lpPerHour', 'lpPerTap', 'vipStatus', 'nsfwConsent', 'lastTick', 'lastWheelSpin'
+        'lpPerHour', 'lpPerTap', 'vipStatus', 'nsfwConsent', 'lastTick', 'lastWheelSpin',
+        'displayPicture' // 🆕 NEW: Allow displayPicture updates
       ];
       
       const updates = Object.keys(requestData)
@@ -326,4 +426,6 @@ export function registerUserRoutes(app: Express) {
       message: 'Telegram authentication verified'
     }));
   });
+
+  console.log('✅ User routes registered with display picture functionality');
 }
