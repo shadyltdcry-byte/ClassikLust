@@ -8,6 +8,7 @@ interface CropperProps {
   onCropComplete: (croppedFile: File) => void;
   onCancel: () => void;
   isOpen: boolean;
+  originalFile?: File; // 🆕 NEW: Pass original file to preserve name
 }
 
 interface Area {
@@ -22,8 +23,9 @@ interface Area {
  * Uses react-easy-crop for proper drag/pan/zoom with selectable crop area
  * Exports exact 512x512 PNG via canvas (no stretching)
  * FIXED: Starts at fit-to-container zoom level instead of 1x
+ * FIXED: Preserves original filename without adding "cropped_" prefix
  */
-export default function Cropper512({ imageUrl, onCropComplete, onCancel, isOpen }: CropperProps) {
+export default function Cropper512({ imageUrl, onCropComplete, onCancel, isOpen, originalFile }: CropperProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
@@ -116,8 +118,17 @@ export default function Cropper512({ imageUrl, onCropComplete, onCancel, isOpen 
         }, 'image/png', 1.0);
       });
 
-      // Create File from blob
-      const fileName = `cropped_${Date.now()}.png`;
+      // 🆕 FIXED: Use original filename without "cropped_" prefix
+      let fileName = 'image.png';
+      if (originalFile?.name) {
+        const originalName = originalFile.name;
+        const nameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.')) || originalName;
+        const ext = originalName.substring(originalName.lastIndexOf('.')) || '.png';
+        fileName = `${nameWithoutExt}${ext}`;
+      } else {
+        fileName = `uploaded_${Date.now()}.png`;
+      }
+      
       const file = new File([blob], fileName, { type: 'image/png' });
       
       console.log(`✂️ [CROP] Generated 512x512 file: ${fileName} (${Math.round(blob.size / 1024)}KB)`);
@@ -127,13 +138,13 @@ export default function Cropper512({ imageUrl, onCropComplete, onCancel, isOpen 
       console.error('Error creating cropped image:', error);
       alert('Failed to crop image. Please try again.');
     }
-  }, [croppedAreaPixels, imageUrl, onCropComplete]);
+  }, [croppedAreaPixels, imageUrl, onCropComplete, originalFile]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onCancel}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden bg-gray-800 border-gray-600">
         <DialogHeader>
-          <DialogTitle>✂️ Crop Image (512x512)</DialogTitle>
+          <DialogTitle className="text-white">✂️ Crop Image (512x512)</DialogTitle>
         </DialogHeader>
         
         <div className="relative w-full h-96 bg-black rounded-lg overflow-hidden">
@@ -160,7 +171,7 @@ export default function Cropper512({ imageUrl, onCropComplete, onCancel, isOpen 
         </div>
         
         <div className="flex items-center gap-2 mt-4">
-          <label className="text-sm font-medium">Zoom:</label>
+          <label className="text-sm font-medium text-white">Zoom:</label>
           <input
             type="range"
             min={0.5}
@@ -170,11 +181,11 @@ export default function Cropper512({ imageUrl, onCropComplete, onCancel, isOpen 
             onChange={(e) => setZoom(Number(e.target.value))}
             className="flex-1"
           />
-          <span className="text-sm text-muted-foreground">{Math.round(zoom * 100)}%</span>
+          <span className="text-sm text-gray-400">{Math.round(zoom * 100)}%</span>
         </div>
         
         <div className="flex justify-end gap-3 mt-6">
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={onCancel} className="border-gray-600 text-white">
             Cancel
           </Button>
           <Button 
@@ -186,7 +197,7 @@ export default function Cropper512({ imageUrl, onCropComplete, onCancel, isOpen 
           </Button>
         </div>
         
-        <p className="text-xs text-muted-foreground mt-2">
+        <p className="text-xs text-gray-400 mt-2">
           💡 Drag to position, use zoom slider to scale. Final output will be exactly 512x512 pixels.
         </p>
       </DialogContent>
