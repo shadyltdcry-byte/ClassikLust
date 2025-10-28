@@ -4562,5 +4562,21 @@
     "timestamp": "2025-10-28T19:55:16.033Z",
     "type": "text",
     "mood": "alert"
+  },
+  {
+    "id": "luna-alert-1761683403948-2emfik06w",
+    "content": "🌙 I noticed something weird in System @ 8:30:03 PM. Luna Error Monitor - Watching for any errors.",
+    "sender": "character",
+    "timestamp": "2025-10-28T20:30:03.948Z",
+    "type": "text",
+    "mood": "alert"
+  },
+  {
+    "id": "luna-alert-1761685072339-fbtktloaf",
+    "content": "🌙 Heads up babe, System might need looked at. Luna Error Monitor - Watching for any errors. (8:57:52 PM)",
+    "sender": "character",
+    "timestamp": "2025-10-28T20:57:52.339Z",
+    "type": "text",
+    "mood": "alert"
   }
 ]
