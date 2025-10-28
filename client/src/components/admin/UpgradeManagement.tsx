@@ -64,30 +64,52 @@ export default function UpgradeManagement() {
 
   const queryClient = useQueryClient();
 
-  // 🆕 FIXED: Switch to new admin upgrades endpoint with user decoration
-  const { data: upgradesResponse, isLoading } = useQuery({
+  // 🆕 FIXED: Use correct API path and error handling
+  const { data: upgradesResponse, isLoading, error } = useQuery({
     queryKey: ['/api/admin/upgrades'],
     queryFn: async () => {
       try {
-        // Use new endpoint with userId to show current levels and costs
+        console.log('📊 [ADMIN] Fetching upgrades...');
+        
+        // Use the correct API path from gameExtrasRoutes
         const response = await fetch('/api/admin/upgrades?userId=telegram_5134006535');
+        
         if (!response.ok) {
-          throw new Error(`Failed to fetch upgrades: ${response.status}`);
+          const errorText = await response.text();
+          console.error('❌ [ADMIN] API Error:', response.status, errorText);
+          throw new Error(`API Error ${response.status}: ${errorText}`);
         }
+        
         const result = await response.json();
-        console.log('📊 [ADMIN] Fetched upgrades:', result);
+        console.log('📊 [ADMIN] Received response:', result);
+        
         return result;
       } catch (error) {
         console.error('❌ [ADMIN] Failed to fetch upgrades:', error);
         throw error;
       }
     },
-    retry: 2,
-    staleTime: 30000 // Cache for 30 seconds
+    retry: 1,
+    staleTime: 10000 // Cache for 10 seconds
   });
 
-  // Extract upgrades from response
-  const upgrades: Upgrade[] = upgradesResponse?.data ? upgradesResponse.data : [];
+  // Extract upgrades from response - handle both success response and direct array
+  const upgrades: Upgrade[] = (() => {
+    if (!upgradesResponse) return [];
+    
+    // Handle createSuccessResponse format
+    if (upgradesResponse.data && Array.isArray(upgradesResponse.data)) {
+      return upgradesResponse.data;
+    }
+    
+    // Handle direct array format
+    if (Array.isArray(upgradesResponse)) {
+      return upgradesResponse;
+    }
+    
+    console.warn('⚠️ [ADMIN] Unexpected response format:', upgradesResponse);
+    return [];
+  })();
 
   const createMutation = useMutation({
     mutationFn: async (data: Upgrade) => {
@@ -101,7 +123,10 @@ export default function UpgradeManagement() {
       setShowDialog(false);
       resetForm();
     },
-    onError: () => toast.error('Failed to create upgrade')
+    onError: (error) => {
+      console.error('❌ [ADMIN] Create error:', error);
+      toast.error('Failed to create upgrade');
+    }
   });
 
   const updateMutation = useMutation({
@@ -116,7 +141,10 @@ export default function UpgradeManagement() {
       setShowDialog(false);
       resetForm();
     },
-    onError: () => toast.error('Failed to update upgrade')
+    onError: (error) => {
+      console.error('❌ [ADMIN] Update error:', error);
+      toast.error('Failed to update upgrade');
+    }
   });
 
   const deleteMutation = useMutation({
@@ -129,7 +157,10 @@ export default function UpgradeManagement() {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/upgrades'] });
       toast.success('Upgrade deleted!');
     },
-    onError: () => toast.error('Failed to delete upgrade')
+    onError: (error) => {
+      console.error('❌ [ADMIN] Delete error:', error);
+      toast.error('Failed to delete upgrade');
+    }
   });
 
   const resetForm = () => {
@@ -170,6 +201,29 @@ export default function UpgradeManagement() {
     return upgradeCategories.find(cat => cat.value === category)?.label || category;
   };
 
+  // Show error state if there's an API error
+  if (error) {
+    return (
+      <Card className="bg-gray-800 border-gray-700">
+        <CardContent className="p-8 text-center">
+          <div className="text-red-400 mb-4">
+            <div className="text-4xl mb-2">❌</div>
+            <h3 className="text-lg font-semibold">API Error</h3>
+            <p className="text-sm text-gray-400 mt-2">
+              {error instanceof Error ? error.message : 'Failed to load upgrades'}
+            </p>
+            <Button 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/admin/upgrades'] })}
+              className="mt-4 bg-red-600 hover:bg-red-700"
+            >
+              🔄 Retry
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="bg-gray-800 border-gray-700">
       <CardHeader className="pb-4">
@@ -195,20 +249,24 @@ export default function UpgradeManagement() {
         <ScrollArea className="h-[60vh]">
           <div className="space-y-3">
             {isLoading ? (
-              <div className="text-center text-gray-400">Loading upgrades...</div>
+              <div className="text-center text-gray-400 py-8">
+                <div className="text-2xl mb-2">🔄</div>
+                <p>Loading upgrades...</p>
+              </div>
             ) : upgrades.length === 0 ? (
               <div className="text-center text-gray-400 py-8">
                 <div className="text-2xl mb-2">📊</div>
                 <p className="text-lg">No upgrades found</p>
-                <p className="text-sm mt-2">Create your first upgrade to get started!</p>
+                <p className="text-sm mt-2">The upgrade system may not be initialized yet.</p>
+                <p className="text-xs text-gray-500 mt-2">Check server logs for more details.</p>
               </div>
             ) : (
               <>
                 <div className="text-sm text-gray-400 mb-4">
                   📈 Showing {upgrades.length} upgrades with current user levels
                 </div>
-                {upgrades.map((upgrade: Upgrade) => (
-                  <div key={upgrade.id || upgrade.key} className="bg-gray-700 p-4 rounded border border-gray-600 hover:border-gray-500 transition-colors">
+                {upgrades.map((upgrade: Upgrade, index) => (
+                  <div key={upgrade.id || upgrade.key || index} className="bg-gray-700 p-4 rounded border border-gray-600 hover:border-gray-500 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
@@ -230,7 +288,7 @@ export default function UpgradeManagement() {
                           <div>
                             <p className="text-gray-300">Required Level: <span className="text-white">{upgrade.requiredLevel || upgrade.levelRequirement || 1}</span></p>
                             <p className="text-gray-300">Max Level: <span className="text-white">{upgrade.maxLevel || '∞'}</span></p>
-                            {upgrade.nextCost !== undefined && (
+                            {upgrade.nextCost !== undefined && upgrade.nextCost !== null && (
                               <p className="text-gray-300">Next Cost: <span className="text-yellow-400">{upgrade.nextCost.toLocaleString()} LP</span></p>
                             )}
                           </div>
@@ -255,6 +313,7 @@ export default function UpgradeManagement() {
                           variant="destructive"
                           onClick={() => deleteMutation.mutate(upgrade.id!)}
                           data-testid={`button-delete-upgrade-${upgrade.id}`}
+                          disabled={!upgrade.id}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
