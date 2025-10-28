@@ -1,9 +1,9 @@
 /**
  * FileManagerCore.tsx - Media management UI
- * Last Edited: 2025-10-28 by Assistant - Added Cropper512 and poses support
+ * Last Edited: 2025-10-28 by Assistant - Fixed upload toggles and cropper
  *
- * ✂️ NEW: True cropping with react-easy-crop for 512x512 output
- * 🎨 NEW: Poses system with reusable tags
+ * ✂️ FIXED: Cropper starts at proper zoom (fit-to-container)
+ * ☑️ FIXED: Upload toggles use checkboxes instead of broken switches
  * 📤 FIXED: Upload saves all metadata on first insert
  * 🔄 FIXED: UI refreshes after save to show correct values
  *
@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -66,7 +67,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
 
   // Fetch media files
   const { data: mediaFiles = [], isLoading: filesLoading, refetch } = useQuery<MediaFile[]>({
-    queryKey: ['/api/media'],
+    queryKey: ['media'],
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/media');
       return await response.json();
@@ -75,14 +76,14 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
 
   // Fetch characters for assignment
   const { data: characters = [] } = useQuery<Character[]>({
-    queryKey: ['/api/characters'],
+    queryKey: ['characters'],
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/characters');
       return await response.json();
     },
   });
 
-  // 📤 FIXED UPLOAD: Use new /api/media/upload endpoint with metadata
+  // 📤 FIXED UPLOAD: Use adminRoutes upload endpoint with FormData + JSON metadata
   const uploadMutation = useMutation({
     mutationFn: async (uploadData: {
       file: File;
@@ -90,52 +91,40 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
     }) => {
       console.log('📤 [UPLOAD] Starting upload with metadata:', uploadData.metadata);
       
-      // First upload the file to storage (your existing upload logic)
+      // Use the adminRoutes /api/media/upload endpoint with FormData
       const formData = new FormData();
-      formData.append('file', uploadData.file);
+      formData.append('files', uploadData.file);
       
-      const uploadResponse = await fetch('/api/media/upload-file', {
+      // Add metadata as form fields
+      Object.entries(uploadData.metadata).forEach(([key, value]) => {
+        if (key === 'poses' && Array.isArray(value)) {
+          formData.append('poses', JSON.stringify(value));
+        } else {
+          formData.append(key, String(value));
+        }
+      });
+      
+      console.log('📤 [UPLOAD] FormData entries:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}: ${value}`);
+      }
+      
+      const response = await fetch('/api/media/upload', {
         method: 'POST',
         body: formData,
       });
-      
-      if (!uploadResponse.ok) {
-        throw new Error(`File upload failed: ${uploadResponse.status}`);
-      }
-      
-      const uploadResult = await uploadResponse.json();
-      console.log('📤 [UPLOAD] File uploaded:', uploadResult);
-      
-      // Then save with metadata using new endpoint
-      const metadata = {
-        fileName: uploadData.file.name,
-        filePath: uploadResult.filePath || uploadResult.url,
-        fileType: 'image',
-        ...uploadData.metadata,
-        poses: uploadData.metadata.poses || [] // Ensure poses is array
-      };
-      
-      console.log('📤 [UPLOAD] Saving metadata:', metadata);
-      
-      const metadataResponse = await fetch('/api/media/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(metadata),
-      });
 
-      if (!metadataResponse.ok) {
-        const errorText = await metadataResponse.text();
-        throw new Error(`Metadata save failed: ${metadataResponse.status} - ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
       }
 
-      const result = await metadataResponse.json();
+      const result = await response.json();
       console.log('✅ [UPLOAD] Complete:', result);
       return result;
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/media'] });
+      queryClient.invalidateQueries({ queryKey: ['media'] });
       toast.success('✅ File uploaded with metadata!');
       setUploadProgress(0);
       setSelectedFiles([]);
@@ -198,9 +187,10 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
         console.warn('⚠️ [EDIT] Could not refresh file data:', error);
       }
       
-      queryClient.invalidateQueries({ queryKey: ['/api/media'] });
+      queryClient.invalidateQueries({ queryKey: ['media'] });
       toast.success('✅ Metadata updated!');
       setEditingFile(null);
+      refetch();
     },
     onError: (error) => {
       console.error('❌ [EDIT] Update failed:', error);
@@ -215,9 +205,10 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/media'] });
+      queryClient.invalidateQueries({ queryKey: ['media'] });
       toast.success('File deleted successfully');
       setSelectedFile(null);
+      refetch();
     },
     onError: (error) => {
       console.error('Delete failed:', error);
@@ -689,51 +680,61 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
               )}
             </div>
 
-            {/* Settings Panel */}
+            {/* ☑️ FIXED: Settings Panel with Checkboxes */}
             <div className="bg-gray-800/80 border border-gray-600 rounded-lg p-4">
               <h3 className="text-white text-sm font-semibold mb-3">Upload Settings</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded border border-gray-600">
-                  <div>
-                    <span className="text-white text-sm font-medium">VIP Content</span>
-                    <p className="text-gray-400 text-xs">Requires premium access</p>
-                  </div>
-                  <Switch
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isVip"
                     checked={uploadConfig.isVip}
-                    onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, isVip: checked }))}
+                    onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, isVip: !!checked }))}
+                    className="border-gray-500"
                   />
+                  <Label htmlFor="isVip" className="text-white text-sm font-medium cursor-pointer">
+                    💸 VIP Content
+                  </Label>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded border border-gray-600">
-                  <div>
-                    <span className="text-white text-sm font-medium">NSFW Content</span>
-                    <p className="text-gray-400 text-xs">18+ Content</p>
-                  </div>
-                  <Switch
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isNsfw"
                     checked={uploadConfig.isNsfw}
-                    onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, isNsfw: checked }))}
+                    onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, isNsfw: !!checked }))}
+                    className="border-gray-500"
                   />
+                  <Label htmlFor="isNsfw" className="text-white text-sm font-medium cursor-pointer">
+                    🔞 NSFW Content
+                  </Label>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded border border-gray-600">
-                  <div>
-                    <span className="text-white text-sm font-medium">Chat Sending</span>
-                    <p className="text-gray-400 text-xs">Enable for chat</p>
-                  </div>
-                  <Switch
-                    checked={uploadConfig.enabledForChat}
-                    onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, enabledForChat: checked }))}
-                  />
-                </div>
-                <div className="flex items-center justify-between p-3 bg-gray-700/50 rounded border border-gray-600">
-                  <div>
-                    <span className="text-white text-sm font-medium">⭐ Event Content</span>
-                    <p className="text-gray-400 text-xs">Special event media</p>
-                  </div>
-                  <Switch
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isEvent"
                     checked={uploadConfig.isEvent}
-                    onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, isEvent: checked }))}
+                    onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, isEvent: !!checked }))}
+                    className="border-gray-500"
                   />
+                  <Label htmlFor="isEvent" className="text-white text-sm font-medium cursor-pointer">
+                    ⭐ Event Content
+                  </Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="enabledForChat"
+                    checked={uploadConfig.enabledForChat}
+                    onCheckedChange={(checked) => setUploadConfig(prev => ({ ...prev, enabledForChat: !!checked }))}
+                    className="border-gray-500"
+                  />
+                  <Label htmlFor="enabledForChat" className="text-white text-sm font-medium cursor-pointer">
+                    💬 Enable for Chat
+                  </Label>
                 </div>
               </div>
+              <p className="text-xs text-gray-400 mt-2">
+                VIP requires premium • NSFW for 18+ • Event for special content • Chat enables AI sending
+              </p>
             </div>
 
             {/* Upload Button */}
@@ -1014,7 +1015,7 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center space-x-2">
                   <Switch
                     checked={editingFile.isVip || false}
@@ -1035,39 +1036,33 @@ const FileManagerCore: React.FC<FileManagerCoreProps> = ({ onClose }) => {
                     onCheckedChange={(checked) => setEditingFile({...editingFile, isEvent: checked})}
                   />
                   <Label className="text-white">⭐Event Content</Label>
-                </div>    
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={editingFile.enabledForChat ?? true}
+                    onCheckedChange={(checked) => setEditingFile({...editingFile, enabledForChat: checked})}
+                    className="data-[state=checked]:bg-purple-600"
+                  />
+                  <Label className="text-white">💬Chat Sending</Label>
+                </div>   
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      checked={editingFile.enabledForChat ?? true}
-                      onCheckedChange={(checked) => setEditingFile({...editingFile, enabledForChat: checked})}
-                      className="data-[state=checked]:bg-purple-600"
-                    />
-                    <Label className="text-white">💬Chat Sending</Label>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-400">Allow AI to send this image during conversations</p>
-
-                <div>
-                  <Label className="text-white">Chat Send Chance (%)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={editingFile.randomSendChance || 5}
-                    onChange={(e) =>
-                      setEditingFile({
-                        ...editingFile,
-                        randomSendChance: parseInt(e.target.value) || 5
-                      })
-                    }
-                    className="bg-gray-700 border-gray-600 text-white mt-2"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">Chat send chance probability (0-100%)</p>
-                </div>
+              <div>
+                <Label className="text-white">Chat Send Chance (%)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editingFile.randomSendChance || 5}
+                  onChange={(e) =>
+                    setEditingFile({
+                      ...editingFile,
+                      randomSendChance: parseInt(e.target.value) || 5
+                    })
+                  }
+                  className="bg-gray-700 border-gray-600 text-white mt-2"
+                />
+                <p className="text-xs text-gray-400 mt-1">Chat send chance probability (0-100%)</p>
               </div>
 
               <div className="flex justify-end space-x-2">
