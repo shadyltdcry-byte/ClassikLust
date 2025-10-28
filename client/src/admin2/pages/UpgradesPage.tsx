@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
+import { apiRequest } from '@/lib/queryClient';
 
 interface Upgrade {
   id: string;
@@ -18,19 +19,17 @@ interface Upgrade {
 }
 
 const UpgradesPage: React.FC = () => {
-  const { data: response, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/admin/upgrades'],
+  const { data: upgrades, isLoading, error, refetch } = useQuery<Upgrade[]>({
+    queryKey: ['upgrade-definitions'],
     queryFn: async () => {
-      console.log('🔄 [ADMIN2] Fetching upgrades...');
-      const res = await fetch('/api/admin/upgrades?userId=telegram_5134006535');
+      const res = await apiRequest('GET', '/api/admin/upgrade-definitions');
       if (!res.ok) throw new Error(`API Error ${res.status}`);
-      return res.json();
+      const response = await res.json();
+      return Array.isArray(response) ? response : (response.data || []);
     },
     retry: 1,
     staleTime: 10000
   });
-
-  const upgrades: Upgrade[] = response?.data || [];
 
   if (error) {
     return (
@@ -56,7 +55,7 @@ const UpgradesPage: React.FC = () => {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
-            Upgrade Definitions ({upgrades.length})
+            Upgrade Definitions ({upgrades?.length || 0})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -64,7 +63,7 @@ const UpgradesPage: React.FC = () => {
             <div className="text-center py-8">
               <div className="text-gray-400">Loading upgrades...</div>
             </div>
-          ) : upgrades.length === 0 ? (
+          ) : !upgrades?.length ? (
             <div className="text-center py-8">
               <TrendingUp className="w-12 h-12 text-gray-500 mx-auto mb-4" />
               <p className="text-gray-400">No upgrades found</p>
