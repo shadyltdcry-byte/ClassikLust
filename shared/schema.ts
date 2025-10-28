@@ -92,11 +92,10 @@ export const upgrades = pgTable("upgrades", {
   levelRequirement: integer("levelRequirement").notNull().default(1),
 });
 
-// 🎯 CRITICAL CHANGE: upgradeId is now TEXT to support JSON string IDs!
+// 🎯 FIXED: userId is now TEXT to support telegram IDs directly!
 export const userUpgrades = pgTable("userUpgrades", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: uuid("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-  // 🔥 PURGED UUID FK - now supports "mega-tap" string IDs from JSON!
+  userId: text("userId").notNull(), // NOW TEXT - supports "telegram_5134006535" directly!
   upgradeId: text("upgradeId").notNull(), // No FK constraint = no UUID validation!
   level: integer("level").notNull().default(0),
   purchasedAt: timestamp("purchasedAt").notNull().default(sql`now()`),
@@ -218,11 +217,10 @@ export const upgradesRelations = relations(upgrades, ({ many }) => ({
   userUpgrades: many(userUpgrades),
 }));
 
-// 🎯 PURGED FK RELATION - userUpgrades no longer tied to upgrades table!
+// 🎯 SIMPLIFIED RELATION - userUpgrades uses TEXT userId (no FK to users)
 export const userUpgradesRelations = relations(userUpgrades, ({ one }) => ({
-  user: one(users, { fields: [userUpgrades.userId], references: [users.id] }),
-  // 💀 MURDERED: upgrade: one(upgrades, { fields: [userUpgrades.upgradeId], references: [upgrades.id] })
-  // Now upgradeId can be any string! "mega-tap", "super-boost", etc.
+  // No relation to users since userId is now TEXT (telegram IDs)
+  // This keeps it simple and avoids FK constraints
 }));
 
 export const achievementsRelations = relations(achievements, ({ many }) => ({
