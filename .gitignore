@@ -2,3 +2,5 @@ dist
 .DS_Store
 vite.config.ts.*
 *.tar.gz
+package.json
+tsconfig.json
