@@ -64,50 +64,61 @@ export default function UpgradeManagement() {
 
   const queryClient = useQueryClient();
 
-  // 🆕 FIXED: Use correct API path and error handling
-  const { data: upgradesResponse, isLoading, error } = useQuery({
-    queryKey: ['/api/admin/upgrades'],
+  // 🎯 FIXED: Clear cache + direct fetch with userId
+  const { data: upgradesResponse, isLoading, error, refetch } = useQuery({
+    queryKey: ['admin-upgrades-v2'], // New cache key to avoid conflicts
     queryFn: async () => {
       try {
-        console.log('📊 [ADMIN] Fetching upgrades...');
+        console.log('📊 [UPGRADE-MGMT] Fetching from: /api/admin/upgrades?userId=telegram_5134006535');
         
-        // Use the correct API path from gameExtrasRoutes
-        const response = await fetch('/api/admin/upgrades?userId=telegram_5134006535');
+        // Direct fetch with userId parameter
+        const response = await fetch('/api/admin/upgrades?userId=telegram_5134006535', {
+          method: 'GET',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
         
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('❌ [ADMIN] API Error:', response.status, errorText);
-          throw new Error(`API Error ${response.status}: ${errorText}`);
+          console.error('❌ [UPGRADE-MGMT] API Error:', response.status, errorText);
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
         
         const result = await response.json();
-        console.log('📊 [ADMIN] Received response:', result);
+        console.log('📊 [UPGRADE-MGMT] API Response:', result);
         
         return result;
       } catch (error) {
-        console.error('❌ [ADMIN] Failed to fetch upgrades:', error);
+        console.error('❌ [UPGRADE-MGMT] Fetch failed:', error);
         throw error;
       }
     },
-    retry: 1,
-    staleTime: 10000 // Cache for 10 seconds
+    retry: 2,
+    staleTime: 5000,
+    refetchOnWindowFocus: false
   });
 
-  // Extract upgrades from response - handle both success response and direct array
+  // Extract upgrades array from response
   const upgrades: Upgrade[] = (() => {
-    if (!upgradesResponse) return [];
+    if (!upgradesResponse) {
+      console.log('📊 [UPGRADE-MGMT] No response data');
+      return [];
+    }
     
-    // Handle createSuccessResponse format
-    if (upgradesResponse.data && Array.isArray(upgradesResponse.data)) {
+    // Handle success wrapper: { success: true, data: [...] }
+    if (upgradesResponse.success && Array.isArray(upgradesResponse.data)) {
+      console.log('📊 [UPGRADE-MGMT] Found', upgradesResponse.data.length, 'upgrades in success wrapper');
       return upgradesResponse.data;
     }
     
-    // Handle direct array format
+    // Handle direct array
     if (Array.isArray(upgradesResponse)) {
+      console.log('📊 [UPGRADE-MGMT] Found', upgradesResponse.length, 'upgrades as direct array');
       return upgradesResponse;
     }
     
-    console.warn('⚠️ [ADMIN] Unexpected response format:', upgradesResponse);
+    console.warn('⚠️ [UPGRADE-MGMT] Unexpected response format:', upgradesResponse);
     return [];
   })();
 
@@ -118,13 +129,13 @@ export default function UpgradeManagement() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/upgrades'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-upgrades-v2'] });
       toast.success('Upgrade created!');
       setShowDialog(false);
       resetForm();
     },
     onError: (error) => {
-      console.error('❌ [ADMIN] Create error:', error);
+      console.error('❌ [UPGRADE-MGMT] Create error:', error);
       toast.error('Failed to create upgrade');
     }
   });
@@ -136,13 +147,13 @@ export default function UpgradeManagement() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/upgrades'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-upgrades-v2'] });
       toast.success('Upgrade updated!');
       setShowDialog(false);
       resetForm();
     },
     onError: (error) => {
-      console.error('❌ [ADMIN] Update error:', error);
+      console.error('❌ [UPGRADE-MGMT] Update error:', error);
       toast.error('Failed to update upgrade');
     }
   });
@@ -154,11 +165,11 @@ export default function UpgradeManagement() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/upgrades'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-upgrades-v2'] });
       toast.success('Upgrade deleted!');
     },
     onError: (error) => {
-      console.error('❌ [ADMIN] Delete error:', error);
+      console.error('❌ [UPGRADE-MGMT] Delete error:', error);
       toast.error('Failed to delete upgrade');
     }
   });
@@ -182,14 +193,13 @@ export default function UpgradeManagement() {
     setEditingUpgrade(upgrade);
     setFormData({
       ...upgrade,
-      // Ensure we use the correct field names
       requiredLevel: upgrade.requiredLevel || upgrade.levelRequirement || 1
     });
     setShowDialog(true);
   };
 
   const handleSubmit = () => {
-    console.log('📝 [ADMIN] Submitting upgrade:', formData);
+    console.log('📝 [UPGRADE-MGMT] Submitting:', formData);
     if (editingUpgrade) {
       updateMutation.mutate(formData);
     } else {
@@ -201,23 +211,37 @@ export default function UpgradeManagement() {
     return upgradeCategories.find(cat => cat.value === category)?.label || category;
   };
 
-  // Show error state if there's an API error
+  // Show error state with better debugging
   if (error) {
     return (
       <Card className="bg-gray-800 border-gray-700">
         <CardContent className="p-8 text-center">
           <div className="text-red-400 mb-4">
             <div className="text-4xl mb-2">❌</div>
-            <h3 className="text-lg font-semibold">API Error</h3>
+            <h3 className="text-lg font-semibold">API Connection Failed</h3>
             <p className="text-sm text-gray-400 mt-2">
               {error instanceof Error ? error.message : 'Failed to load upgrades'}
             </p>
-            <Button 
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/admin/upgrades'] })}
-              className="mt-4 bg-red-600 hover:bg-red-700"
-            >
-              🔄 Retry
-            </Button>
+            <p className="text-xs text-gray-500 mt-2">
+              Trying: GET /api/admin/upgrades?userId=telegram_5134006535
+            </p>
+            <div className="flex gap-2 justify-center mt-4">
+              <Button 
+                onClick={() => refetch()}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                🔄 Retry
+              </Button>
+              <Button 
+                onClick={() => {
+                  queryClient.clear();
+                  refetch();
+                }}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                🗑️ Clear Cache & Retry
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -252,13 +276,21 @@ export default function UpgradeManagement() {
               <div className="text-center text-gray-400 py-8">
                 <div className="text-2xl mb-2">🔄</div>
                 <p>Loading upgrades...</p>
+                <p className="text-xs text-gray-500 mt-2">GET /api/admin/upgrades?userId=telegram_5134006535</p>
               </div>
             ) : upgrades.length === 0 ? (
               <div className="text-center text-gray-400 py-8">
                 <div className="text-2xl mb-2">📊</div>
                 <p className="text-lg">No upgrades found</p>
-                <p className="text-sm mt-2">The upgrade system may not be initialized yet.</p>
-                <p className="text-xs text-gray-500 mt-2">Check server logs for more details.</p>
+                <p className="text-sm mt-2">API returned empty list</p>
+                <p className="text-xs text-gray-500 mt-2">Check server logs or add upgrades via JSON files</p>
+                <Button 
+                  onClick={() => refetch()}
+                  className="mt-4 bg-gray-600 hover:bg-gray-700"
+                  size="sm"
+                >
+                  🔄 Refresh
+                </Button>
               </div>
             ) : (
               <>
