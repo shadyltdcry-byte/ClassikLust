@@ -1,9 +1,9 @@
 /**
  * userRoutes.ts - User Management and Telegram Authentication Routes  
- * Last Edited: 2025-10-28 by Assistant - Added display picture functionality
+ * Last Edited: 2025-10-28 by Assistant - Fixed UUID validation for display picture
  * 
  * Handles user creation, Telegram authentication, and user data management
- * NEW: Display picture selection from character gallery for PlayerStatsPanel
+ * FIXED: Display picture selection now works with telegram user IDs
  */
 
 import type { Express, Request, Response } from "express";
@@ -36,7 +36,7 @@ if (!global.recentTelegramAuth) {
 
 export function registerUserRoutes(app: Express) {
 
-  // 🇮🇳 NEW: Set display picture from character gallery (for PlayerStatsPanel)
+  // 🇮🇳 FIXED: Set display picture from character gallery (handles telegram IDs)
   app.post('/api/user/set-display-picture', async (req: Request, res: Response) => {
     try {
       const { userId, imagePath } = req.body;
@@ -47,11 +47,26 @@ export function registerUserRoutes(app: Express) {
       
       console.log(`🖼️ [USER] Setting display picture for user ${userId}: ${imagePath}`);
       
+      // 🔧 FIXED: Handle telegram user IDs properly
+      let queryUserId = userId;
+      let queryField = 'id';
+      
+      if (userId.startsWith('telegram_')) {
+        // For telegram users, query by telegram field instead of UUID id
+        const telegramId = userId.replace('telegram_', '');
+        queryUserId = telegramId;
+        queryField = 'telegram';
+        console.log(`📱 [USER] Using telegram query: ${queryField} = ${queryUserId}`);
+      } else if (!isValidUUID(userId)) {
+        console.error('❌ [USER] Invalid user ID format:', userId);
+        return res.status(400).json(createErrorResponse('Invalid user ID format'));
+      }
+      
       // Update user's displayPicture field in database
       const { data, error } = await storage.supabase
         .from('users')
         .update({ displayPicture: imagePath })
-        .eq('id', userId)
+        .eq(queryField, queryUserId)
         .select()
         .single();
       
@@ -60,7 +75,12 @@ export function registerUserRoutes(app: Express) {
         return res.status(500).json(createErrorResponse('Failed to update display picture'));
       }
       
-      console.log('✅ [USER] Display picture updated successfully');
+      if (!data) {
+        console.error('❌ [USER] User not found:', userId);
+        return res.status(404).json(createErrorResponse('User not found'));
+      }
+      
+      console.log('✅ [USER] Display picture updated successfully for user:', data.id);
       
       res.json(createSuccessResponse({
         message: 'Display picture updated successfully',
@@ -74,7 +94,7 @@ export function registerUserRoutes(app: Express) {
     }
   });
   
-  // 🔄 NEW: Reset display picture to default
+  // 🔄 FIXED: Reset display picture to default (handles telegram IDs)
   app.post('/api/user/reset-display-picture', async (req: Request, res: Response) => {
     try {
       const { userId } = req.body;
@@ -85,10 +105,24 @@ export function registerUserRoutes(app: Express) {
       
       console.log(`🔄 [USER] Resetting display picture for user ${userId}`);
       
+      // 🔧 FIXED: Handle telegram user IDs properly
+      let queryUserId = userId;
+      let queryField = 'id';
+      
+      if (userId.startsWith('telegram_')) {
+        const telegramId = userId.replace('telegram_', '');
+        queryUserId = telegramId;
+        queryField = 'telegram';
+        console.log(`📱 [USER] Using telegram query: ${queryField} = ${queryUserId}`);
+      } else if (!isValidUUID(userId)) {
+        console.error('❌ [USER] Invalid user ID format:', userId);
+        return res.status(400).json(createErrorResponse('Invalid user ID format'));
+      }
+
       const { data, error } = await storage.supabase
         .from('users')
         .update({ displayPicture: null })
-        .eq('id', userId)
+        .eq(queryField, queryUserId)
         .select()
         .single();
       
@@ -97,7 +131,12 @@ export function registerUserRoutes(app: Express) {
         return res.status(500).json(createErrorResponse('Failed to reset display picture'));
       }
       
-      console.log('✅ [USER] Display picture reset to default');
+      if (!data) {
+        console.error('❌ [USER] User not found:', userId);
+        return res.status(404).json(createErrorResponse('User not found'));
+      }
+      
+      console.log('✅ [USER] Display picture reset to default for user:', data.id);
       
       res.json(createSuccessResponse({
         message: 'Display picture reset to default',
@@ -155,15 +194,27 @@ export function registerUserRoutes(app: Express) {
     }
   });
 
-  // Get user profile with display picture
+  // Get user profile with display picture (handles telegram IDs)
   app.get('/api/user/:userId/profile', async (req: Request, res: Response) => {
     try {
       const { userId } = req.params;
       
+      // 🔧 FIXED: Handle telegram user IDs properly
+      let queryUserId = userId;
+      let queryField = 'id';
+      
+      if (userId.startsWith('telegram_')) {
+        const telegramId = userId.replace('telegram_', '');
+        queryUserId = telegramId;
+        queryField = 'telegram';
+      } else if (!isValidUUID(userId)) {
+        return res.status(400).json(createErrorResponse('Invalid user ID format'));
+      }
+      
       const { data, error } = await storage.supabase
         .from('users')
         .select('id, username, displayName, displayPicture, level, lp, xp, energy, maxEnergy, telegram')
-        .eq('id', userId)
+        .eq(queryField, queryUserId)
         .single();
       
       if (error) {
@@ -268,7 +319,7 @@ export function registerUserRoutes(app: Express) {
       const validUserFields = [
         'username', 'level', 'lp', 'energy', 'maxEnergy', 'charisma', 
         'lpPerHour', 'lpPerTap', 'vipStatus', 'nsfwConsent', 'lastTick', 'lastWheelSpin',
-        'displayPicture' // 🆕 NEW: Allow displayPicture updates
+        'displayPicture' // 🆕 Allow displayPicture updates
       ];
       
       const updates = Object.keys(requestData)
@@ -427,5 +478,5 @@ export function registerUserRoutes(app: Express) {
     }));
   });
 
-  console.log('✅ User routes registered with display picture functionality');
+  console.log('✅ User routes registered with display picture functionality and telegram ID support');
 }
