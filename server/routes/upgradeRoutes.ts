@@ -72,29 +72,14 @@ router.post('/:upgradeId/purchase', async (req, res) => {
       const newLP = (user.lp || 0) - cost;
       await supabaseStorage.updateUser(userId, { lp: newLP });
 
-      // Update upgrade level - Fixed to handle Telegram IDs and proper constraints
+      // Update upgrade level - SIMPLIFIED: Direct telegram ID usage
       console.log(`🔄 [PURCHASE] Updating upgrade progress for user ${userId}, upgrade ${upgradeId}`);
       
-      // First, try to get the user's UUID from their telegram ID
-      const userRecord = await supabaseStorage.supabase
-        .from('users')
-        .select('id')
-        .eq('telegramId', userId)
-        .single();
-      
-      let actualUserId = userId;
-      if (userRecord.data?.id) {
-        actualUserId = userRecord.data.id;
-        console.log(`🔄 [PURCHASE] Using UUID ${actualUserId} for Telegram ID ${userId}`);
-      } else {
-        console.log(`⚠️ [PURCHASE] Could not find UUID for ${userId}, using string ID directly`);
-      }
-
       // Try to update existing record first
       const { data: existingUpgrade } = await supabaseStorage.supabase
         .from('userUpgrades')
         .select('id, level')
-        .eq('userId', actualUserId)
+        .eq('userId', userId) // Direct telegram ID - no conversion needed!
         .eq('upgradeId', upgradeId)
         .single();
 
@@ -116,7 +101,7 @@ router.post('/:upgradeId/purchase', async (req, res) => {
         const { error } = await supabaseStorage.supabase
           .from('userUpgrades')
           .insert({
-            userId: actualUserId,
+            userId: userId, // Direct telegram ID usage!
             upgradeId,
             level: currentLevel + 1,
             purchasedAt: new Date().toISOString()
