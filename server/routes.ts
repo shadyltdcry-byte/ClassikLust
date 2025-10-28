@@ -26,6 +26,7 @@ import adminRoutes from './routes/admin';
 import debugRoutes from './routes/debug';
 import gameExtrasRoutes from './routes/gameExtrasRoutes.js';
 import { registerMediaRoutes } from './routes/mediaRoutes.js';
+import { registerEnergyRoutes } from './routes/energyRoutes.js';
 
 /**
  * 🚀 SYSTEM PREFLIGHT CHECK
@@ -84,7 +85,8 @@ function requestLoggerMiddleware(req: Request, res: Response, next: NextFunction
         '/api/stats/',
         '/api/character/selected',
         '/api/health',
-        '/api/debug/health'
+        '/api/debug/health',
+        '/api/energy/regen/' // Suppress energy regen spam
       ];
       
       const shouldSuppress = suppressedPaths.some(path => req.path.includes(path)) && status === 200;
@@ -154,6 +156,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerUserRoutes(app);
   registerStatsRoutes(app);
   
+  // ⚡ NEW: Energy regeneration system
+  registerEnergyRoutes(app);
+  console.log('⚡ [ENERGY] Energy regeneration system registered');
+  
   // Media management routes
   registerMediaRoutes(app);
   console.log('🖼️ [MEDIA] Media management routes registered');
@@ -175,7 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerVipRoutes(app);
   registerDebugRoutes(app);
 
-  // 🆕 NEW: Game extras (offline claim, admin upgrades) - NO PACKAGE.JSON CHANGES
+  // 🆕 Game extras (offline claim, admin upgrades) - NO PACKAGE.JSON CHANGES
   app.use(gameExtrasRoutes);
   console.log('⏱️ [EXTRAS] Offline claim and admin upgrade routes registered');
 
@@ -217,6 +223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`✅ [STATUS] ${healthyFeatures}/${totalFeatures} systems operational`);
     console.log(`⏱️ [OFFLINE] Offline claim system active`);
     console.log(`📈 [UPGRADES] Admin upgrade management active`);
+    console.log(`⚡ [ENERGY] Energy regeneration system active`);
     console.log(`🎆 ==============================================\n`);
     
     // Show any disabled features as warnings
