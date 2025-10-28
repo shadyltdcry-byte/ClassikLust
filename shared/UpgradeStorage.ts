@@ -1,6 +1,6 @@
 /**
  * UpgradeStorage.ts - Pure JSON-First Upgrade System
- * Simplified to work directly with telegram IDs (no UUID conversion needed)
+ * Now with upgrade effects application to user stats
  */
 
 import { promises as fs } from 'fs';
@@ -33,6 +33,13 @@ export interface Upgrade {
 export interface UserUpgrade {
   upgradeId: string;
   level: number;
+}
+
+export interface ComputedStats {
+  lpPerTap: number;
+  lpPerHour: number;
+  maxEnergy: number;
+  energy?: number; // optional to cap energy to new maxEnergy
 }
 
 export class UpgradeStorage {
@@ -146,13 +153,94 @@ export class UpgradeStorage {
   }
 
   calculateTotalEffect(upgrade: Upgrade, level: number): number {
-    if (level === 0) return upgrade.baseEffect;
-    // For multiplicative effects, compound the bonus
+    if (level === 0) return 0;
+    
+    // Use tapBonus and hourlyBonus from JSON if available
+    if (upgrade.tapBonus && upgrade.category === 'lpPerTap') {
+      return upgrade.tapBonus * level;
+    }
+    if (upgrade.hourlyBonus && upgrade.category === 'lpPerHour') {
+      return upgrade.hourlyBonus * level;
+    }
+    
+    // Fallback to original calculation
     if (upgrade.category === 'lpPerTap' && upgrade.id !== 'mega-tap') {
       return upgrade.baseEffect * Math.pow(1 + upgrade.effectMultiplier, level - 1);
     }
     // For additive effects
     return upgrade.baseEffect + (upgrade.effectMultiplier * level);
+  }
+
+  /**
+   * 🔥 NEW: APPLY UPGRADE EFFECTS TO USER STATS
+   * Recalculates user stats based on purchased upgrades and saves to database
+   */
+  async applyUserUpgradeEffects(userId: string): Promise<ComputedStats> {
+    console.log(`⚡ [EFFECTS] Applying upgrade effects for user: ${userId}`);
+    
+    const allUpgrades = await this.getAllUpgrades();
+    const userUpgrades = await this.getUserUpgrades(userId);
+    const user = await this.storage.getUser(userId);
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Base stats (default values)
+    let lpPerTap = 2;      // base tap power
+    let lpPerHour = 250;   // base passive income
+    let maxEnergy = 1000;  // base energy capacity
+
+    console.log(`⚡ [EFFECTS] Processing ${userUpgrades.length} purchased upgrades...`);
+
+    // Apply effects from each purchased upgrade
+    for (const userUpgrade of userUpgrades) {
+      const upgrade = allUpgrades.find(u => u.id === userUpgrade.upgradeId);
+      if (!upgrade || userUpgrade.level === 0) continue;
+
+      const effectValue = this.calculateTotalEffect(upgrade, userUpgrade.level);
+      console.log(`⚡ [EFFECTS] ${upgrade.name} level ${userUpgrade.level}: +${effectValue} ${upgrade.category}`);
+
+      switch (upgrade.category) {
+        case 'lpPerTap':
+          lpPerTap += effectValue;
+          break;
+        case 'lpPerHour':
+          lpPerHour += effectValue;
+          break;
+        case 'energy':
+          maxEnergy += effectValue;
+          break;
+        case 'passive':
+          lpPerHour += effectValue; // passive upgrades boost hourly income
+          break;
+      }
+    }
+
+    // Cap current energy to new max if energy was increased
+    let newEnergy = user.energy;
+    if (maxEnergy > (user.maxEnergy || 1000)) {
+      newEnergy = Math.min(user.energy, maxEnergy);
+    }
+
+    const newStats: ComputedStats = {
+      lpPerTap: Math.max(1, Math.floor(lpPerTap)),
+      lpPerHour: Math.max(10, Math.floor(lpPerHour)),
+      maxEnergy: Math.max(1000, Math.floor(maxEnergy)),
+      energy: newEnergy
+    };
+
+    console.log(`⚡ [EFFECTS] Final stats: lpPerTap=${newStats.lpPerTap}, lpPerHour=${newStats.lpPerHour}, maxEnergy=${newStats.maxEnergy}`);
+
+    // Update user stats in database
+    await this.storage.updateUser(userId, {
+      lpPerTap: newStats.lpPerTap,
+      lpPerHour: newStats.lpPerHour,
+      maxEnergy: newStats.maxEnergy,
+      energy: newStats.energy
+    });
+
+    return newStats;
   }
 
   /**
