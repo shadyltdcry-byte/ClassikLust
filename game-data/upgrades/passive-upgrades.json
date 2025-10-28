@@ -61,5 +61,22 @@
       "upgradeId": "idle-generator",
       "level": 3
     }
+  },
+  {
+    "id": "offline-cap",
+    "key": "offline-cap",
+    "name": "Offline Collector",
+    "description": "Increases maximum time for offline LP accrual by +30 minutes per level",
+    "category": "passive",
+    "icon": "⏱️",
+    "baseCost": 800,
+    "baseEffect": 30,
+    "costMultiplier": 1.35,
+    "effectMultiplier": 30,
+    "maxLevel": 6,
+    "requiredLevel": 5,
+    "sortOrder": 4,
+    "hourlyBonus": 0,
+    "tapBonus": 0
   }
 ]
