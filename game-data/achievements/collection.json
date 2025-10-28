@@ -1,0 +1,18 @@
+[
+  {
+    "id": "lp-collector",
+    "key": "lp-collector",
+    "name": "LP Collector", 
+    "description": "Collect 10,000 LP",
+    "category": "collection",
+    "requirementType": "lpEarned",
+    "target": 10000,
+    "rewardType": "lp",
+    "amount": 500,
+    "enabled": true,
+    "hidden": false,
+    "sortOrder": 0,
+    "createdAt": "2025-10-23T21:55:00.000Z",
+    "updatedAt": "2025-10-23T21:55:00.000Z"
+  }
+]

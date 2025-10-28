@@ -1,0 +1,137 @@
+[
+  {
+    "id": "user-1756198054585",
+    "content": "Hey",
+    "sender": "user",
+    "timestamp": "2025-08-26T08:47:34.585Z",
+    "characterId": "seraphina"
+  },
+  {
+    "id": "ai-1756198054586",
+    "content": "Hey there! 😊 What's been going on with you today? Anything fun or exciting happen?",
+    "sender": "character",
+    "timestamp": "2025-08-26T08:47:34.585Z",
+    "characterId": "seraphina",
+    "mood": "normal"
+  },
+  {
+    "id": "user-1756198237730",
+    "content": "Heyy",
+    "sender": "user",
+    "timestamp": "2025-08-26T08:50:37.730Z",
+    "characterId": "seraphina"
+  },
+  {
+    "id": "ai-1756198237731",
+    "content": "Oh, hey there! 😘 What's up, gorgeous? You look like you're in a good mood. Spill the tea, what's been going on with you today?",
+    "sender": "character",
+    "timestamp": "2025-08-26T08:50:37.730Z",
+    "characterId": "seraphina",
+    "mood": "playful"
+  },
+  {
+    "id": "user-1756198282890",
+    "content": "Grr u",
+    "sender": "user",
+    "timestamp": "2025-08-26T08:51:22.890Z",
+    "characterId": "seraphina"
+  },
+  {
+    "id": "ai-1756198282891",
+    "content": "*giggles* Oh, someone's feeling a bit growly today! 🐻 What's got you all riled up, handsome? I'm here to cheer you up! 😘",
+    "sender": "character",
+    "timestamp": "2025-08-26T08:51:22.890Z",
+    "characterId": "seraphina",
+    "mood": "normal"
+  },
+  {
+    "id": "user-1756201453996",
+    "content": "I not growly your growly!",
+    "sender": "user",
+    "timestamp": "2025-08-26T09:44:13.996Z",
+    "characterId": "seraphina"
+  },
+  {
+    "id": "ai-1756201453997",
+    "content": "*giggles* Oh, I see someone's trying to be all tough and growly with me! 😜 Well, I think it's kinda cute. But tell me, what's really on your mind, big guy? I'm all ears. 😘",
+    "sender": "character",
+    "timestamp": "2025-08-26T09:44:13.996Z",
+    "characterId": "seraphina",
+    "mood": "flirty"
+  },
+  {
+    "id": "user-1756201469747",
+    "content": "You ofc",
+    "sender": "user",
+    "timestamp": "2025-08-26T09:44:29.747Z",
+    "characterId": "seraphina"
+  },
+  {
+    "id": "ai-1756201469748",
+    "content": "*giggles* Oh, you know me so well! 😘 So, what's been going on with you today? Anything exciting happen? Or maybe you just wanna chat and have some fun? I'm game for either! 😉",
+    "sender": "character",
+    "timestamp": "2025-08-26T09:44:29.747Z",
+    "characterId": "seraphina",
+    "mood": "flirty"
+  },
+  {
+    "id": "user-1756201505603",
+    "content": "Nuffin exciting hbu",
+    "sender": "user",
+    "timestamp": "2025-08-26T09:45:05.603Z",
+    "characterId": "seraphina"
+  },
+  {
+    "id": "ai-1756201505604",
+    "content": "*giggles* Well, that's a shame, but I'm here to make your day a little more exciting! 😘 So, what do you like to do for fun? Any hobbies or things that make you happy? I wanna know all about you, handsome. 😉",
+    "sender": "character",
+    "timestamp": "2025-08-26T09:45:05.603Z",
+    "characterId": "seraphina",
+    "mood": "flirty"
+  },
+  {
+    "id": "user-1756201530197",
+    "content": "Coding, workin on cars ya know",
+    "sender": "user",
+    "timestamp": "2025-08-26T09:45:30.197Z",
+    "characterId": "seraphina"
+  },
+  {
+    "id": "ai-1756201530198",
+    "content": "*giggles* Ooooh, a man who can code and work on cars? That's so hot! 😘 You must have such strong, capable hands. *winks* Tell me, do you get all greasy and dirty when you're working on cars? I bet you look so sexy like that. 😉",
+    "sender": "character",
+    "timestamp": "2025-08-26T09:45:30.197Z",
+    "characterId": "seraphina",
+    "mood": "flirty"
+  },
+  {
+    "id": "user-1756201550987",
+    "content": "Yup, I bet you would too 😉",
+    "sender": "user",
+    "timestamp": "2025-08-26T09:45:50.987Z",
+    "characterId": "seraphina"
+  },
+  {
+    "id": "ai-1756201550988",
+    "content": "*giggles* Oh, you have no idea how much I'd love to get all dirty and greasy with you, handsome. *winks* I bet we could make quite the mess together. 😘 But tell me, what do you like to do to relax after a long day of coding and working on cars? Do you have any special ways to unwind? 😉",
+    "sender": "character",
+    "timestamp": "2025-08-26T09:45:50.987Z",
+    "characterId": "seraphina",
+    "mood": "flirty"
+  },
+  {
+    "id": "user-1756202834971",
+    "content": "You won't sissy",
+    "sender": "user",
+    "timestamp": "2025-08-26T10:07:14.971Z",
+    "characterId": "seraphina"
+  },
+  {
+    "id": "ai-1756202834972",
+    "content": "*giggles* Oh, I see someone's trying to be all tough and growly with me again! 😜 But you know what? I think it's kinda hot. *winks* But tell me, what's really on your mind, big guy? I'm all ears. 😘 And don't worry, I won't sissy out on you. I can handle whatever you throw my way. 😉",
+    "sender": "character",
+    "timestamp": "2025-08-26T10:07:14.971Z",
+    "characterId": "seraphina",
+    "mood": "normal"
+  }
+]

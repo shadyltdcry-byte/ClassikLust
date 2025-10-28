@@ -1,0 +1,12 @@
+// 💀 THIS FILE HAS BEEN PURGED - REPLACED BY FILESTORAGE 💀
+//
+// Database seeding is now handled by:
+// - FileStorage.initializeDefaultData()
+// - JSON files in game-data/ directories
+// - SupabaseStorage integration with FileStorage
+//
+// No more hardcoded arrays!
+// No more database insertion hell!
+// No more baseCost/basecost normalization conflicts!
+//
+// 🎯 JSON-FIRST ARCHITECTURE VICTORY! 🎯

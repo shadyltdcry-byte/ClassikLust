@@ -1,0 +1,26 @@
+[
+  {
+    "id": "event-halloween-2025",
+    "title": "Halloween Spook-tacular",
+    "description": "Special Halloween event - earn extra LP during October!",
+    "category": "event",
+    "requirements": {
+      "type": "tap_count",
+      "target": 1000
+    },
+    "rewards": [
+      {
+        "type": "lp",
+        "amount": 10000
+      },
+      {
+        "type": "booster",
+        "amount": 1
+      }
+    ],
+    "isActive": false,
+    "levelRequirement": 10,
+    "createdAt": "2025-10-23T23:00:00.000Z",
+    "updatedAt": "2025-10-23T23:00:00.000Z"
+  }
+]

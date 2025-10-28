@@ -1,0 +1,39 @@
+name: AI Auto-Approve Pull Request
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ai-review-and-approve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: AI Code Review
+        uses: AleksandrFurmenkovOfficial/ai-code-review@main
+        with:
+          model: "perplexity"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          api_key: ${{ secrets.PERPLEXITY_API_KEY }}
+          # Optional: You can specify custom instructions for the review
+          # system_prompt: "You are a code reviewer focused on security."
+          # You can also exclude certain files
+          # exclude_patterns: "**.md, **.txt"
+
+      - name: Check for approval condition
+        id: check
+        run: |
+          # This is a placeholder. You would need to check the output of the previous step.
+          # A real-world implementation would need to parse the review comment and look for a pass/fail indicator.
+          if [ "$SOME_CONDITION_IS_MET" == "true" ]; then
+            echo "is_approved=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Auto Approve if criteria met
+        if: steps.check.outputs.is_approved == 'true'
+        uses: hmarr/auto-approve-action@v4
+        with:
+          review-message: "Auto-approved by Perplexity AI"

@@ -1,0 +1,54 @@
+[
+  {
+    "id": "weekly-lp-master",
+    "title": "LP Accumulator",
+    "description": "Earn 10,000 LP this week",
+    "category": "weekly",
+    "requirements": {
+      "type": "lp_earned",
+      "target": 10000
+    },
+    "rewards": [
+      {
+        "type": "lp",
+        "amount": 5000
+      },
+      {
+        "type": "energy",
+        "amount": 100
+      }
+    ],
+    "resetSchedule": {
+      "hour": 0,
+      "dayOfWeek": 1
+    },
+    "isActive": true,
+    "levelRequirement": 5,
+    "createdAt": "2025-10-23T23:00:00.000Z",
+    "updatedAt": "2025-10-23T23:00:00.000Z"
+  },
+  {
+    "id": "weekly-social-butterfly",
+    "title": "Social Butterfly",
+    "description": "Have 50 character interactions this week",
+    "category": "weekly",
+    "requirements": {
+      "type": "character_interaction",
+      "target": 50
+    },
+    "rewards": [
+      {
+        "type": "charisma",
+        "amount": 200
+      }
+    ],
+    "resetSchedule": {
+      "hour": 0,
+      "dayOfWeek": 1
+    },
+    "isActive": true,
+    "levelRequirement": 8,
+    "createdAt": "2025-10-23T23:00:00.000Z",
+    "updatedAt": "2025-10-23T23:00:00.000Z"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "enhanced-tapping",
+    "key": "enhanced-tapping",
+    "name": "Enhanced Tapping",
+    "description": "Increases LP gained per tap",
+    "category": "lpPerTap",
+    "icon": "👆",
+    "baseCost": 100,
+    "baseEffect": 1,
+    "costMultiplier": 1.15,
+    "effectMultiplier": 1.0,
+    "maxLevel": 25,
+    "requiredLevel": 1,
+    "sortOrder": 0,
+    "hourlyBonus": 0,
+    "tapBonus": 1,
+    "currentLevel": 0,
+    "createdAt": "2025-10-23T22:05:00.000Z",
+    "updatedAt": "2025-10-23T22:05:00.000Z"
+  },
+  {
+    "id": "power-tap", 
+    "key": "power-tap",
+    "name": "Power Tap",
+    "description": "Significantly increases tap effectiveness",
+    "category": "lpPerTap",
+    "icon": "💪",
+    "baseCost": 500,
+    "baseEffect": 5,
+    "costMultiplier": 1.25,
+    "effectMultiplier": 1.1,
+    "maxLevel": 15,
+    "requiredLevel": 5,
+    "sortOrder": 1,
+    "hourlyBonus": 0,
+    "tapBonus": 5,
+    "currentLevel": 0,
+    "createdAt": "2025-10-23T22:05:00.000Z",
+    "updatedAt": "2025-10-23T22:05:00.000Z"
+  }
+]

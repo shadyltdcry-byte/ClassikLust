@@ -1,0 +1,34 @@
+[
+  {
+    "id": "first-steps",
+    "key": "first-steps",
+    "name": "First Steps",
+    "description": "Make your first tap", 
+    "category": "gameplay",
+    "requirementType": "tapCount",
+    "target": 1,
+    "rewardType": "lp",
+    "amount": 10,
+    "enabled": true,
+    "hidden": false,
+    "sortOrder": 0,
+    "createdAt": "2025-10-23T21:55:00.000Z",
+    "updatedAt": "2025-10-23T21:55:00.000Z"
+  },
+  {
+    "id": "tap-novice",
+    "key": "tap-novice", 
+    "name": "Tap Novice",
+    "description": "Make 100 taps",
+    "category": "gameplay",
+    "requirementType": "tapCount",
+    "target": 100,
+    "rewardType": "lp",
+    "amount": 50,
+    "enabled": true,
+    "hidden": false,
+    "sortOrder": 1,
+    "createdAt": "2025-10-23T21:55:00.000Z",
+    "updatedAt": "2025-10-23T21:55:00.000Z"
+  }
+]

@@ -1,0 +1,65 @@
+[
+  {
+    "id": "auto-tapper",
+    "key": "auto-tapper",
+    "name": "Auto Tapper",
+    "description": "Generates LP automatically over time",
+    "category": "passive",
+    "icon": "🤖",
+    "baseCost": 1000,
+    "baseEffect": 5,
+    "costMultiplier": 1.25,
+    "effectMultiplier": 2,
+    "maxLevel": 25,
+    "requiredLevel": 10,
+    "sortOrder": 1,
+    "hourlyBonus": 5,
+    "tapBonus": 0,
+    "unlockRequirements": {
+      "upgradeId": "mega-tap",
+      "level": 10
+    }
+  },
+  {
+    "id": "idle-generator",
+    "key": "idle-generator",
+    "name": "Idle Generator",
+    "description": "Bonus LP generation when not actively playing",
+    "category": "passive",
+    "icon": "💤",
+    "baseCost": 2000,
+    "baseEffect": 10,
+    "costMultiplier": 1.3,
+    "effectMultiplier": 3,
+    "maxLevel": 20,
+    "requiredLevel": 15,
+    "sortOrder": 2,
+    "hourlyBonus": 10,
+    "tapBonus": 0,
+    "unlockRequirements": {
+      "upgradeId": "auto-tapper",
+      "level": 5
+    }
+  },
+  {
+    "id": "lucky-charm",
+    "key": "lucky-charm",
+    "name": "Lucky Charm",
+    "description": "Random bonus LP events",
+    "category": "passive",
+    "icon": "🍀",
+    "baseCost": 3500,
+    "baseEffect": 0.02,
+    "costMultiplier": 1.35,
+    "effectMultiplier": 0.01,
+    "maxLevel": 12,
+    "requiredLevel": 20,
+    "sortOrder": 3,
+    "hourlyBonus": 0,
+    "tapBonus": 0,
+    "unlockRequirements": {
+      "upgradeId": "idle-generator",
+      "level": 3
+    }
+  }
+]

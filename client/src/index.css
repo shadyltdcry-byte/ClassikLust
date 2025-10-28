@@ -1,0 +1,502 @@
+
+@import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* {
+  outline: 1px solid red !important;
+}
+/* Custom animations */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 1;
+    transform: translateY(0px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.5);
+  }
+}
+
+@keyframes fade-out {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tap-effect {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-float-up {
+  animation: float-up 1s ease-out forwards;
+}
+
+.animate-fade-out {
+  animation: fade-out 1s ease-out forwards;
+}
+
+.tap-effect {
+  animation: tap-effect 0.08s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #ff6b9d, #c44569);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@layer base {
+  :root {
+    /* ClassikLust Dark Theme - Black/Pink Dominant */
+    --background: 0 0% 7%;
+    --foreground: 330 10% 95%;
+    --card: 0 0% 12%;
+    --card-foreground: 330 10% 95%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 330 10% 95%;
+    --primary: 330 100% 65%;
+    --primary-foreground: 0 0% 8%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 330 15% 85%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 330 5% 60%;
+    --accent: 330 80% 55%;
+    --accent-foreground: 0 0% 8%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 20%;
+    --input: 0 0% 18%;
+    --ring: 330 100% 65%;
+    --radius: 0.75rem;
+
+    /* ClassikLust Game Theme - Dark Pink */
+    --game-bg: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 50%, #2a0a2a 100%);
+    --game-card: rgba(0, 0, 0, 0.8);
+    --game-accent: #ff1493;
+    --game-secondary: #ff69b4;
+    --anime-pink: #ff1493;
+    --anime-purple: #8b008b;
+    --anime-blue: #4169e1;
+
+    /* Root variables - Dark Theme */
+    --primary-color: #ff1493;
+    --secondary-color: #ff69b4;
+    --background-color: #0a0a0a;
+    --text-color: #f5f5f5;
+    --accent-color: #8b008b;
+    --font-family: "Inter";
+    --header-font-size: 24px;
+    --body-font-size: 16px;
+    --font-weight: normal;
+    --border-radius: 12px;
+    --card-padding: 20px;
+    --button-padding: 12px 24px;
+    --spacing: 16px;
+    --character-image-size: 300px;
+    --character-border-radius: 15px;
+    --chart-1: 330 70% 60%;
+    --chart-2: 300 60% 45%;
+    --chart-3: 270 50% 40%;
+    --chart-4: 330 80% 55%;
+    --chart-5: 300 75% 50%;
+  }
+  
+  .dark {
+    /* Even darker variant for explicit dark mode */
+    --background: 0 0% 4%;
+    --foreground: 330 15% 98%;
+    --card: 0 0% 8%;
+    --card-foreground: 330 15% 98%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 330 15% 98%;
+    --primary: 330 100% 70%;
+    --primary-foreground: 0 0% 4%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 330 20% 90%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 330 8% 65%;
+    --accent: 330 85% 60%;
+    --accent-foreground: 0 0% 4%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 18%;
+    --input: 0 0% 15%;
+    --ring: 330 100% 70%;
+    --chart-1: 330 75% 65%;
+    --chart-2: 300 65% 50%;
+    --chart-3: 270 55% 45%;
+    --chart-4: 330 85% 60%;
+    --chart-5: 300 80% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 50%, #2a0a2a 100%);
+    background-attachment: fixed;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+  }
+}
+
+/* ClassikLust Game Specific Styles */
+.game-container {
+  background: var(--game-bg);
+  min-height: 100vh;
+}
+
+.game-card {
+  background: var(--game-card);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.anime-gradient {
+  background: linear-gradient(45deg, var(--anime-pink), var(--anime-purple));
+}
+
+.character-card {
+  background: linear-gradient(135deg, var(--anime-pink), var(--anime-purple));
+  border-radius: var(--character-border-radius);
+  padding: var(--card-padding);
+}
+
+/* Your custom game CSS grid layout */
+.game-gui-container {
+  display: grid;
+  grid-template-areas:
+    "top-left top-middle top-right"
+    "under-top under-top under-top"  
+    "middle middle right"
+    "bottom bottom bottom";
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-columns: 250px 1fr 250px;
+  height: 100vh;
+  width: 100vw;
+  gap: 10px;
+  padding: 10px;
+}
+
+.top-left { grid-area: top-left; }
+.top-middle { grid-area: top-middle; }
+.top-right { grid-area: top-right; }
+.under-top { grid-area: under-top; }
+.middle { grid-area: middle; }
+.right { grid-area: right; }
+.bottom { grid-area: bottom; }
+
+.bottom-tabs {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.bottom-tabs button.active-tab {
+  font-weight: bold;
+  border-bottom: 2px solid #fff;
+}
+
+.bottom-content {
+  margin-top: 5px;
+}
+
+.character-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(255, 107, 157, 0.3);
+}
+
+.tap-button {
+  background: radial-gradient(
+    circle,
+    var(--anime-pink) 0%,
+    var(--anime-purple) 100%
+  );
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(255, 107, 157, 0.4);
+}
+
+.tap-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(255, 107, 157, 0.6);
+}
+
+.tap-button:active {
+  transform: scale(0.95);
+}
+
+.energy-bar {
+  background: linear-gradient(90deg, var(--anime-blue), var(--anime-purple));
+}
+
+.coin-animation {
+  animation: coinFloat 2s ease-in-out infinite;
+}
+
+@keyframes coinFloat {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.character-unlock-glow {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(255, 107, 157, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 107, 157, 0.8);
+  }
+}
+
+/* Wheel Spin Animation */
+.wheel-spin {
+  animation: spin 3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(1800deg);
+  }
+}
+
+/* Floating Hearts Animation */
+@keyframes float-up {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateY(-30px) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-60px) scale(0.8);
+  }
+}
+
+.animate-float-up {
+  animation: float-up 1.5s ease-out forwards;
+}
+
+/* Chat Bubble Animations */
+.chat-bubble-enter {
+  animation: bubbleEnter 0.3s ease-out;
+}
+
+@keyframes bubbleEnter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .game-container {
+    padding: 1rem;
+  }
+
+  .character-card {
+    margin-bottom: 1rem;
+  }
+
+  .tap-button {
+    width: 200px;
+    height: 200px;
+  }
+}
+
+
+
+
+
+
+
+/* Game-specific styles */
+.gradient-text {
+  background: linear-gradient(45deg, #ec4899, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.tap-effect {
+  transform: scale(0.95);
+  transition: transform 0.1s ease-in-out;
+}
+
+.energy-bar {
+  background: linear-gradient(90deg, #10b981, #3b82f6);
+}
+
+.floating-particles {
+  pointer-events: none;
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: radial-gradient(circle, #ec4899, transparent);
+  border-radius: 50%;
+  animation: float-up 1s ease-out forwards;
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-100px) scale(0);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-bounce-gentle {
+  animation: bounce 1s infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s infinite;
+}
+
+/* Remove tap highlights and improve touch interactions */
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Prevent dialog close on background click */
+[data-radix-overlay] {
+  pointer-events: auto !important;
+}
+
+/* Better dialog styling */
+[data-radix-dialog-content] {
+  pointer-events: auto !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+} 
+
+/* Disable dialog overlay pointer events to prevent accidental closes */
+.DialogOverlay {
+  pointer-events: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+    .admin-section {
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin-bottom: 1em;
+}
+
+.admin-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+    .admin-toggler-button {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  z-index: 1000;
+  padding: 8px 16px;
+}
+
+.admin-toggler-panel {
+  position: fixed;
+  bottom: 50px;
+  right: 10px;
+  width: 400px;
+  height: 600px;
+  background-color: white;
+  border: 1px solid black;
+  overflow: auto;
+  z-index: 1000;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+

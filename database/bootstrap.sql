@@ -1,0 +1,2 @@
+-- PURGED: Hardcoded upgrade bootstrap removed. JSON files drive content.
+-- Keep DDL only. Do not seed upgrade rows here.

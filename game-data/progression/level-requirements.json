@@ -1,0 +1,55 @@
+[
+  {
+    "level": 1,
+    "lpRequired": 0,
+    "description": "Welcome to the game!",
+    "unlockRewards": [
+      {
+        "type": "energy",
+        "amount": 100
+      }
+    ],
+    "functions": [
+      "basic_tapping",
+      "character_unlock_starter"
+    ],
+    "upgradeRequirements": [],
+    "createdAt": "2025-10-23T23:00:00.000Z",
+    "updatedAt": "2025-10-23T23:00:00.000Z"
+  },
+  {
+    "level": 2,
+    "lpRequired": 1000,
+    "description": "First milestone - upgrades unlocked!",
+    "unlockRewards": [
+      {
+        "type": "lp",
+        "amount": 500
+      }
+    ],
+    "functions": [
+      "upgrade_system"
+    ],
+    "upgradeRequirements": [],
+    "createdAt": "2025-10-23T23:00:00.000Z",
+    "updatedAt": "2025-10-23T23:00:00.000Z"
+  },
+  {
+    "level": 5,
+    "lpRequired": 10000,
+    "description": "Advanced player - more features unlocked!",
+    "unlockRewards": [
+      {
+        "type": "charisma",
+        "amount": 100
+      }
+    ],
+    "functions": [
+      "weekly_tasks",
+      "wheel_spin"
+    ],
+    "upgradeRequirements": [],
+    "createdAt": "2025-10-23T23:00:00.000Z",
+    "updatedAt": "2025-10-23T23:00:00.000Z"
+  }
+]

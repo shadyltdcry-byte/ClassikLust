@@ -1,0 +1,16 @@
+{
+  "id": "level-1",
+  "name": "Beginner",
+  "description": "Starting your journey",
+  "requiredXp": 0,
+  "rewards": {
+    "coins": 100,
+    "energy": 50
+  },
+  "unlocks": [
+    "basic-tap",
+    "first-character"
+  ],
+  "icon": "🌟",
+  "color": "#4CAF50"
+}

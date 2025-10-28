@@ -1,0 +1,83 @@
+[
+  {
+    "id": "mega-tap",
+    "key": "mega-tap",
+    "name": "Mega Tap",
+    "description": "Increases LP gained per tap",
+    "category": "lpPerTap",
+    "icon": "👆",
+    "baseCost": 100,
+    "baseEffect": 2,
+    "costMultiplier": 1.15,
+    "effectMultiplier": 1,
+    "maxLevel": 50,
+    "requiredLevel": 1,
+    "sortOrder": 1,
+    "hourlyBonus": 0,
+    "tapBonus": 1,
+    "unlockRequirements": {}
+  },
+  {
+    "id": "turbo-tap",
+    "key": "turbo-tap",
+    "name": "Turbo Tap",
+    "description": "Multiplies tap effectiveness",
+    "category": "lpPerTap",
+    "icon": "⚡",
+    "baseCost": 500,
+    "baseEffect": 1.5,
+    "costMultiplier": 1.2,
+    "effectMultiplier": 0.1,
+    "maxLevel": 25,
+    "requiredLevel": 5,
+    "sortOrder": 2,
+    "hourlyBonus": 0,
+    "tapBonus": 0.5,
+    "unlockRequirements": {
+      "upgradeId": "mega-tap",
+      "level": 5
+    }
+  },
+  {
+    "id": "precision-tap",
+    "key": "precision-tap",
+    "name": "Precision Tap",
+    "description": "Chance for critical tap bonus",
+    "category": "lpPerTap",
+    "icon": "🎯",
+    "baseCost": 1200,
+    "baseEffect": 0.05,
+    "costMultiplier": 1.25,
+    "effectMultiplier": 0.02,
+    "maxLevel": 20,
+    "requiredLevel": 10,
+    "sortOrder": 3,
+    "hourlyBonus": 0,
+    "tapBonus": 0,
+    "unlockRequirements": {
+      "upgradeId": "turbo-tap",
+      "level": 3
+    }
+  },
+  {
+    "id": "combo-master",
+    "key": "combo-master",
+    "name": "Combo Master",
+    "description": "Chain taps for increasing bonuses",
+    "category": "lpPerTap",
+    "icon": "🔥",
+    "baseCost": 2500,
+    "baseEffect": 1.1,
+    "costMultiplier": 1.3,
+    "effectMultiplier": 0.05,
+    "maxLevel": 15,
+    "requiredLevel": 15,
+    "sortOrder": 4,
+    "hourlyBonus": 0,
+    "tapBonus": 0.1,
+    "unlockRequirements": {
+      "upgradeId": "precision-tap",
+      "level": 5
+    }
+  }
+]

@@ -1,0 +1,80 @@
+[
+  {
+    "id": "charisma-boost",
+    "key": "charisma-boost",
+    "name": "Charisma Boost",
+    "description": "Increases charisma gain from interactions",
+    "category": "charisma",
+    "icon": "✨",
+    "baseCost": 1500,
+    "baseEffect": 2,
+    "costMultiplier": 1.2,
+    "effectMultiplier": 1,
+    "maxLevel": 25,
+    "requiredLevel": 5,
+    "sortOrder": 1,
+    "hourlyBonus": 0,
+    "tapBonus": 0,
+    "unlockRequirements": {}
+  },
+  {
+    "id": "xp-multiplier",
+    "key": "xp-multiplier",
+    "name": "XP Multiplier",
+    "description": "Multiplies all experience gains",
+    "category": "special",
+    "icon": "🌟",
+    "baseCost": 5000,
+    "baseEffect": 1.1,
+    "costMultiplier": 1.5,
+    "effectMultiplier": 0.05,
+    "maxLevel": 10,
+    "requiredLevel": 25,
+    "sortOrder": 1,
+    "hourlyBonus": 0,
+    "tapBonus": 0,
+    "unlockRequirements": {
+      "totalUpgradeLevels": 50
+    }
+  },
+  {
+    "id": "golden-touch",
+    "key": "golden-touch",
+    "name": "Golden Touch",
+    "description": "All upgrades cost 10% less",
+    "category": "special",
+    "icon": "🏆",
+    "baseCost": 10000,
+    "baseEffect": 0.1,
+    "costMultiplier": 2.0,
+    "effectMultiplier": 0.05,
+    "maxLevel": 5,
+    "requiredLevel": 30,
+    "sortOrder": 2,
+    "hourlyBonus": 0,
+    "tapBonus": 0,
+    "unlockRequirements": {
+      "totalUpgradeLevels": 100
+    }
+  }, 
+  {
+    "id": "combo-master",
+    "key": "combo-master", 
+    "name": "Combo Master",
+    "description": "Build up combo multipliers for massive LP",
+    "category": "special",
+    "icon": "⭐",
+    "baseCost": 2000,
+    "baseEffect": 1,
+    "costMultiplier": 1.5,
+    "effectMultiplier": 1.25,
+    "maxLevel": 10,
+    "requiredLevel": 1,
+    "sortOrder": 0,
+    "hourlyBonus": 0,
+    "tapBonus": 0,
+    "unlockRequirements": {
+      "totalUpgradeLevels": 50
+    }
+  }
+]

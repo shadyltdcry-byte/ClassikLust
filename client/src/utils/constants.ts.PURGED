@@ -1,0 +1,15 @@
+// 💀 THIS FILE HAS BEEN PURGED - MOVED TO JSON CONFIG 💀
+// 
+// All game constants are now dynamically loaded from:
+// game-data/settings/game-settings.json
+//
+// Use FileStorage.getGameSettings() or API endpoints instead
+//
+// Migration path:
+// - gameConstants.lpPerTap → settings.tapCooldown / baseTapPower
+// - gameConstants.maxEnergy → settings.maxEnergy  
+// - gameConstants.energyRecoverAmount → settings.energyRegenRate
+// - gameConstants.lpPerHour → calculated from upgrades
+// - gameConstants.expPerLevel → settings.baseExperienceRequired + experienceMultiplier
+//
+// 🎯 JSON-FIRST ARCHITECTURE RULES! 🎯

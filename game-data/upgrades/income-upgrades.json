@@ -1,0 +1,42 @@
+[
+  {
+    "id": "passive-income",
+    "key": "passive-income",
+    "name": "Passive Income",
+    "description": "Generate LP automatically over time",
+    "category": "lpPerHour", 
+    "icon": "⌛",
+    "baseCost": 250,
+    "baseEffect": 10,
+    "costMultiplier": 1.25,
+    "effectMultiplier": 1.15,
+    "maxLevel": 20,
+    "requiredLevel": 1,
+    "sortOrder": 0,
+    "hourlyBonus": 10,
+    "tapBonus": 0,
+    "currentLevel": 0,
+    "createdAt": "2025-10-23T21:55:00.000Z",
+    "updatedAt": "2025-10-23T21:55:00.000Z"
+  },
+  {
+    "id": "lp-generator",
+    "key": "lp-generator",
+    "name": "LP Generator",
+    "description": "Advanced LP generation system",
+    "category": "lpPerHour",
+    "icon": "⚙️",
+    "baseCost": 1000,
+    "baseEffect": 50,
+    "costMultiplier": 1.3,
+    "effectMultiplier": 1.2,
+    "maxLevel": 15,
+    "requiredLevel": 10,
+    "sortOrder": 1,
+    "hourlyBonus": 50,
+    "tapBonus": 0,
+    "currentLevel": 0,
+    "createdAt": "2025-10-23T21:55:00.000Z",
+    "updatedAt": "2025-10-23T21:55:00.000Z"
+  }
+]

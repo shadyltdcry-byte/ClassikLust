@@ -1,0 +1,16 @@
+{
+  "id": "level-2",
+  "name": "Apprentice",
+  "description": "Learning the basics",
+  "requiredXp": 100,
+  "rewards": {
+    "coins": 250,
+    "energy": 75
+  },
+  "unlocks": [
+    "energy-boost",
+    "second-character"
+  ],
+  "icon": "👍",
+  "color": "#2196F3"
+}

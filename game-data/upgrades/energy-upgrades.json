@@ -1,0 +1,62 @@
+[
+  {
+    "id": "energy-tank",
+    "key": "energy-tank",
+    "name": "Energy Tank",
+    "description": "Increases maximum energy capacity",
+    "category": "energy",
+    "icon": "🔋",
+    "baseCost": 200,
+    "baseEffect": 50,
+    "costMultiplier": 1.12,
+    "effectMultiplier": 10,
+    "maxLevel": 30,
+    "requiredLevel": 1,
+    "sortOrder": 1,
+    "hourlyBonus": 0,
+    "tapBonus": 0,
+    "unlockRequirements": {}
+  },
+  {
+    "id": "energy-regen",
+    "key": "energy-regen",
+    "name": "Energy Regeneration",
+    "description": "Faster energy recovery rate",
+    "category": "energy",
+    "icon": "⚡",
+    "baseCost": 400,
+    "baseEffect": 1,
+    "costMultiplier": 1.18,
+    "effectMultiplier": 0.5,
+    "maxLevel": 20,
+    "requiredLevel": 3,
+    "sortOrder": 2,
+    "hourlyBonus": 0,
+    "tapBonus": 0,
+    "unlockRequirements": {
+      "upgradeId": "energy-tank",
+      "level": 3
+    }
+  },
+  {
+    "id": "efficiency-boost",
+    "key": "efficiency-boost",
+    "name": "Efficiency Boost",
+    "description": "Reduces energy cost per tap",
+    "category": "energy",
+    "icon": "💡",
+    "baseCost": 800,
+    "baseEffect": 0.1,
+    "costMultiplier": 1.22,
+    "effectMultiplier": 0.05,
+    "maxLevel": 15,
+    "requiredLevel": 8,
+    "sortOrder": 3,
+    "hourlyBonus": 0,
+    "tapBonus": 0,
+    "unlockRequirements": {
+      "upgradeId": "energy-regen",
+      "level": 5
+    }
+  }
+]

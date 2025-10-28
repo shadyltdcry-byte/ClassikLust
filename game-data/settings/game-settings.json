@@ -1,0 +1,36 @@
+[
+  {
+    "id": "game-settings",
+    "maxEnergy": 1000,
+    "energyRegenRate": 1,
+    "tapCooldown": 0.1,
+    "maxLevel": 100,
+    "baseExperienceRequired": 1000,
+    "experienceMultiplier": 1.5,
+    "autoSaveInterval": 30000,
+    "wheelSpinCooldown": 24,
+    "dailyBonusHour": 0,
+    "characterUnlockLevels": [
+      {
+        "characterId": "starter-character",
+        "levelRequired": 1
+      }
+    ],
+    "boosterEffects": {
+      "lp_multiplier": {
+        "multiplier": 2.0,
+        "maxDuration": 60
+      },
+      "energy_regen": {
+        "multiplier": 3.0,
+        "maxDuration": 30
+      },
+      "tap_power": {
+        "multiplier": 5.0,
+        "maxDuration": 15
+      }
+    },
+    "createdAt": "2025-10-23T23:00:00.000Z",
+    "updatedAt": "2025-10-23T23:00:00.000Z"
+  }
+]

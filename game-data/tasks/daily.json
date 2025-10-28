@@ -1,0 +1,48 @@
+[
+  {
+    "id": "daily-tap-100",
+    "title": "Tap Master",
+    "description": "Tap 100 times to earn bonus LP",
+    "category": "daily",
+    "requirements": {
+      "type": "tap_count",
+      "target": 100
+    },
+    "rewards": [
+      {
+        "type": "lp",
+        "amount": 500
+      }
+    ],
+    "resetSchedule": {
+      "hour": 0
+    },
+    "isActive": true,
+    "levelRequirement": 1,
+    "createdAt": "2025-10-23T23:00:00.000Z",
+    "updatedAt": "2025-10-23T23:00:00.000Z"
+  },
+  {
+    "id": "daily-energy-spend",
+    "title": "Energy Burn",
+    "description": "Spend 200 energy interacting with characters",
+    "category": "daily",
+    "requirements": {
+      "type": "energy_spent",
+      "target": 200
+    },
+    "rewards": [
+      {
+        "type": "charisma",
+        "amount": 50
+      }
+    ],
+    "resetSchedule": {
+      "hour": 0
+    },
+    "isActive": true,
+    "levelRequirement": 3,
+    "createdAt": "2025-10-23T23:00:00.000Z",
+    "updatedAt": "2025-10-23T23:00:00.000Z"
+  }
+]
