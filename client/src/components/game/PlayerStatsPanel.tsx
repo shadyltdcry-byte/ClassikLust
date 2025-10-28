@@ -30,15 +30,14 @@ export default function PlayerStatsPanel({
   const lustGems = user?.lustGems || playerData?.lustGems || 0;
 
   return (
-    <div className="flex justify-between items-center p-2 bg-gradient-to-r from-purple-900/40 via-pink-900/30 to-red-900/40 border-b-2 border-gradient-to-r from-pink-500/50 via-purple-500/50 to-red-500/50 flex-shrink-0 backdrop-blur-md relative overflow-hidden">
-      {/* Animated Background Glow */}
-      <div className="absolute inset-0 bg-gradient-to-r from-pink-500/5 via-purple-500/10 to-blue-500/5 animate-pulse"></div>
-      <div className="absolute inset-0 bg-gradient-to-l from-red-500/5 via-pink-500/10 to-purple-500/5 animate-pulse" style={{animationDelay: '1s'}}></div>
+    <div className="flex justify-between items-center p-3 bg-gradient-to-r from-[#2a0a1f]/95 via-[#330a22]/90 to-[#2a0f22]/95 border-b border-pink-500/20 flex-shrink-0 backdrop-blur-sm relative">
+      {/* Subtle background glow */}
+      <div className="absolute inset-0 bg-gradient-to-r from-pink-500/3 via-purple-500/5 to-pink-500/3"></div>
 
       {/* Left Section: Avatar + Username + Level */}
-      <div className="flex items-center gap-0.5">
-        <div className="flex flex-col items-center gap-0.5">
-          <p className="text-transparent bg-gradient-to-r from-pink-200 via-purple-200 to-blue-200 bg-clip-text text-xs font-bold text-center tracking-wider drop-shadow-lg">
+      <div className="flex items-center gap-3">
+        <div className="flex flex-col items-center gap-1">
+          <p className="text-white/90 text-sm font-bold text-center tracking-wide drop-shadow-sm">
             {displayName}
           </p>
           <div
@@ -47,7 +46,7 @@ export default function PlayerStatsPanel({
             title="Click to view/chat with character"
           >
             <img
-              src={selectedCharacter?.avatarUrl || selectedCharacter?.imageUrl || selectedCharacter?.avatarPath || "https://via.placeholder.com/64x64/1a1a1a/ff1493?text=👤"}
+              src={selectedCharacter?.avatarUrl || selectedCharacter?.imageUrl || selectedCharacter?.avatarPath || "https://via.placeholder.com/80x80/1a1a1a/ff1493?text=👤"}
               alt="Character Avatar"
               loading="eager"
               onLoad={(e) => {
@@ -56,17 +55,17 @@ export default function PlayerStatsPanel({
               }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                if (target.src !== "https://via.placeholder.com/64x64/1a1a1a/ff1493?text=👤") {
-                  target.src = "https://via.placeholder.com/64x64/1a1a1a/ff1493?text=👤";
+                if (target.src !== "https://via.placeholder.com/80x80/1a1a1a/ff1493?text=👤") {
+                  target.src = "https://via.placeholder.com/80x80/1a1a1a/ff1493?text=👤";
                 }
                 target.style.opacity = '1';
               }}
-              className="w-[88px] h-[88px] object-cover rounded-xl shadow-lg border-2 border-purple-500/50 cursor-pointer hover:border-purple-400/70 transition-all duration-500"
+              className="w-20 h-20 object-cover rounded-xl shadow-md border-2 border-purple-400/40 cursor-pointer hover:border-purple-300/60 transition-all duration-300"
               style={{ opacity: 0, transition: 'opacity 0.5s ease-in-out' }}
             />
           </div>
           <div className="flex flex-col items-center gap-1">
-            <span className="text-transparent bg-gradient-to-r from-yellow-200 via-orange-200 to-red-200 bg-clip-text text-xs font-bold text-center drop-shadow-lg tracking-wider">
+            <span className="text-yellow-200/90 text-xs font-bold text-center drop-shadow-sm tracking-wide">
               Level: {currentLevel}
             </span>
             <Progress value={(currentXP / xpToNext) * 100} className="h-2 w-20" />
@@ -74,10 +73,10 @@ export default function PlayerStatsPanel({
         </div>
 
         {/* Left Column: LustPoints and Lust Gems with frame_stat */}
-        <div className="flex flex-col items-center gap-0.5 ml-2">
+        <div className="flex flex-col items-center gap-2">
           {/* LustPoints Frame with frame_stat background */}
           <div 
-            className="relative px-3 py-2 rounded-xl shadow-2xl backdrop-blur-md hover:shadow-2xl transition-all duration-500 group overflow-hidden w-28 h-20 flex flex-col justify-center items-center"
+            className="relative w-32 h-20 flex flex-col justify-center items-center rounded-lg"
             style={{
               backgroundImage: 'url(/gamegui/frame_stat.png)',
               backgroundSize: 'contain',
@@ -85,12 +84,10 @@ export default function PlayerStatsPanel({
               backgroundPosition: 'center'
             }}
           >
-            <div className="relative flex flex-col items-center gap-0.5 z-10">
-              <div className="flex items-center gap-0.5">
-                <img src="/gamegui/lustgems.png" alt="LP" className="w-4 h-4" />
-                <span className="text-white text-xs font-bold tracking-wider drop-shadow-lg">LustPoints</span>
-              </div>
-              <span className="text-white font-black text-xs tracking-wider drop-shadow-xl">
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/20 rounded-lg"></div>
+            <div className="relative flex flex-col items-center gap-1 z-10">
+              <span className="text-white/95 text-xs font-bold tracking-wide drop-shadow text-center">LustPoints</span>
+              <span className="text-white font-black text-sm tracking-wide drop-shadow-sm">
                 {Math.floor(currentLP).toLocaleString()}
               </span>
             </div>
@@ -98,7 +95,7 @@ export default function PlayerStatsPanel({
 
           {/* Lust Gems Frame with frame_stat background */}
           <div 
-            className="relative px-3 py-2 rounded-xl shadow-2xl backdrop-blur-md hover:shadow-2xl transition-all duration-500 group overflow-hidden w-28 h-20 flex flex-col justify-center items-center"
+            className="relative w-32 h-20 flex flex-col justify-center items-center rounded-lg"
             style={{
               backgroundImage: 'url(/gamegui/frame_stat.png)',
               backgroundSize: 'contain',
@@ -106,12 +103,10 @@ export default function PlayerStatsPanel({
               backgroundPosition: 'center'
             }}
           >
-            <div className="relative flex flex-col items-center gap-0.5 z-10">
-              <div className="flex items-center gap-0.5">
-                <img src="/gamegui/lustgems.png" alt="Gems" className="w-4 h-4" />
-                <span className="text-white text-xs font-bold tracking-wider drop-shadow-lg">Lust Gems</span>
-              </div>
-              <span className="text-white font-black text-xs tracking-wider drop-shadow-xl">
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/20 rounded-lg"></div>
+            <div className="relative flex flex-col items-center gap-1 z-10">
+              <span className="text-white/95 text-xs font-bold tracking-wide drop-shadow text-center">Lust Gems</span>
+              <span className="text-white font-black text-sm tracking-wide drop-shadow-sm">
                 {lustGems}
               </span>
             </div>
@@ -121,7 +116,7 @@ export default function PlayerStatsPanel({
 
       {/* Center Section: LP per Hour with frame_stat */}
       <div 
-        className="relative px-3 py-2 mx-2 rounded-xl shadow-2xl backdrop-blur-md hover:shadow-2xl transition-all duration-500 group overflow-hidden w-32 h-24 flex flex-col justify-center items-center"
+        className="relative w-36 h-24 flex flex-col justify-center items-center rounded-lg mx-2"
         style={{
           backgroundImage: 'url(/gamegui/frame_stat.png)',
           backgroundSize: 'contain',
@@ -129,25 +124,26 @@ export default function PlayerStatsPanel({
           backgroundPosition: 'center'
         }}
       >
-        <div className="absolute top-1 right-1 opacity-50 z-10">
-          <Sparkles className="w-3 h-3 text-yellow-300 animate-pulse" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/20 rounded-lg"></div>
+        <div className="absolute top-2 right-2 opacity-60 z-10">
+          <Sparkles className="w-3 h-3 text-yellow-300/70" />
         </div>
         <div className="relative flex flex-col items-center gap-1 text-center z-10">
-          <span className="text-white text-sm font-bold tracking-wide drop-shadow-lg leading-tight">LP per Hour</span>
-          <span className="text-xl font-bold text-white drop-shadow-2xl animate-pulse leading-none">∞</span>
-          <span className="text-white font-bold text-sm tracking-wide drop-shadow-lg leading-tight">
+          <span className="text-white/95 text-sm font-bold tracking-wide drop-shadow">LP per Hour</span>
+          <span className="text-2xl font-bold text-white/95 drop-shadow-sm">∞</span>
+          <span className="text-white font-bold text-sm tracking-wide drop-shadow-sm">
             {lpPerHour}
           </span>
         </div>
       </div>
 
       {/* Right Section: Energy and Boosters with frame_stat */}
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-2">
         {/* Energy Frame with frame_stat background */}
         <div 
-          className={`relative px-3 py-2 rounded-xl shadow-2xl backdrop-blur-md hover:shadow-2xl transition-all duration-500 group overflow-hidden w-28 h-20 flex flex-col justify-center items-center ${
+          className={`relative w-32 h-20 flex flex-col justify-center items-center rounded-lg ${
             (currentEnergy / maxEnergy) > 0.95
-              ? 'animate-pulse shadow-blue-400/60 shadow-2xl ring-2 ring-blue-400/60'
+              ? 'ring-1 ring-blue-400/40'
               : ''
           }`}
           style={{
@@ -157,9 +153,10 @@ export default function PlayerStatsPanel({
             backgroundPosition: 'center'
           }}
         >
-          <div className="relative flex flex-col items-center gap-0.5 z-10">
-            <span className="text-white text-xs font-bold tracking-wider drop-shadow-lg">Energy</span>
-            <span className="text-white font-black text-xs tracking-wider drop-shadow-xl transition-all duration-200">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/20 rounded-lg"></div>
+          <div className="relative flex flex-col items-center gap-1 z-10">
+            <span className="text-white/95 text-xs font-bold tracking-wide drop-shadow text-center">Energy</span>
+            <span className="text-white font-black text-sm tracking-wide drop-shadow-sm">
               {currentEnergy}/{maxEnergy}
             </span>
           </div>
@@ -167,7 +164,7 @@ export default function PlayerStatsPanel({
 
         {/* Boosters Frame with frame_stat background */}
         <div 
-          className="relative px-3 py-2 rounded-xl shadow-2xl backdrop-blur-md hover:shadow-2xl transition-all duration-500 group overflow-hidden w-28 h-20 flex flex-col justify-center items-center"
+          className="relative w-32 h-20 flex flex-col justify-center items-center rounded-lg"
           style={{
             backgroundImage: 'url(/gamegui/frame_stat.png)',
             backgroundSize: 'contain',
@@ -175,12 +172,13 @@ export default function PlayerStatsPanel({
             backgroundPosition: 'center'
           }}
         >
-          <div className="absolute top-1 right-1 opacity-40 z-10">
-            <Sparkles className="w-2 h-2 text-green-300 animate-pulse" style={{animationDelay: '2s'}} />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/20 rounded-lg"></div>
+          <div className="absolute top-1 right-1 opacity-50 z-10">
+            <Sparkles className="w-2 h-2 text-green-300/60" />
           </div>
           <div className="relative text-center z-10">
-            <span className="text-white text-xs font-bold tracking-wider drop-shadow-lg block mb-1">Boosters</span>
-            <div className="text-white text-xs font-bold tracking-wider drop-shadow-xl">
+            <span className="text-white/95 text-xs font-bold tracking-wide drop-shadow block mb-1">Boosters</span>
+            <div className="text-white/90 text-xs font-bold tracking-wide drop-shadow-sm">
               +0% LP [Inactive]
             </div>
           </div>
@@ -190,10 +188,10 @@ export default function PlayerStatsPanel({
       {/* Dedicated Gallery Button */}
       <button
         onClick={onOpenGallery}
-        className="ml-4 px-3 py-2 bg-gradient-to-br from-purple-700/50 via-pink-700/50 to-red-700/50 border-2 border-purple-500/70 rounded-lg shadow-xl backdrop-blur-md hover:shadow-purple-500/50 hover:shadow-2xl transition-all duration-500 hover:scale-105"
+        className="ml-4 p-3 bg-gradient-to-br from-purple-600/40 via-pink-600/40 to-red-600/40 border border-purple-400/30 rounded-lg shadow-lg backdrop-blur-sm hover:shadow-purple-500/30 hover:scale-105 transition-all duration-300"
         title="Open Character Gallery"
       >
-        <Sparkles className="w-5 h-5 text-purple-300 animate-pulse" />
+        <Sparkles className="w-5 h-5 text-purple-200/80" />
       </button>
     </div>
   );
