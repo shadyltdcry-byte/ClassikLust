@@ -63,23 +63,35 @@ router.post('/:upgradeId/purchase', async (req, res) => {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
+    // Verify user can actually afford it (double-check)
+    if ((user.lp || 0) < cost) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Insufficient LP',
+        userLP: user.lp,
+        cost: cost
+      });
+    }
+
     // Get current upgrade level
     const currentLevel = await upgradeStorage.getUserUpgradeLevel(userId, upgradeId);
 
     // Start transaction-like operations
     try {
-      // Deduct LP
+      // Deduct EXACT cost from user LP
       const newLP = (user.lp || 0) - cost;
+      console.log(`💰 [PURCHASE] LP: ${user.lp} - ${cost} = ${newLP}`);
+      
       await supabaseStorage.updateUser(userId, { lp: newLP });
 
-      // Update upgrade level - SIMPLIFIED: Direct telegram ID usage
+      // Update upgrade level - Direct telegram ID usage (no UUID conversion)
       console.log(`🔄 [PURCHASE] Updating upgrade progress for user ${userId}, upgrade ${upgradeId}`);
       
       // Try to update existing record first
       const { data: existingUpgrade } = await supabaseStorage.supabase
         .from('userUpgrades')
         .select('id, level')
-        .eq('userId', userId) // Direct telegram ID - no conversion needed!
+        .eq('userId', userId) // Direct telegram ID usage!
         .eq('upgradeId', upgradeId)
         .single();
 
@@ -114,10 +126,16 @@ router.post('/:upgradeId/purchase', async (req, res) => {
         throw new Error(`Failed to save upgrade progress: ${upgradeError.message}`);
       }
 
-      // Get updated user stats
+      // 🔥 NEW: Apply upgrade effects to user stats
+      console.log(`⚡ [PURCHASE] Applying upgrade effects to user stats...`);
+      const newStatsApplied = await upgradeStorage.applyUserUpgradeEffects(userId);
+      console.log(`⚡ [PURCHASE] Effects applied:`, newStatsApplied);
+
+      // Get fully updated user stats
       const updatedUser = await supabaseStorage.getUser(userId);
 
       console.log(`✅ [PURCHASE] Success: ${upgradeId} level ${currentLevel + 1}, LP: ${newLP}`);
+      console.log(`✅ [PURCHASE] New stats: lpPerTap=${updatedUser?.lpPerTap}, lpPerHour=${updatedUser?.lpPerHour}, maxEnergy=${updatedUser?.maxEnergy}`);
 
       res.json({
         success: true,
@@ -127,8 +145,13 @@ router.post('/:upgradeId/purchase', async (req, res) => {
           costPaid: cost,
           newStats: {
             lp: updatedUser?.lp || newLP,
-            level: updatedUser?.level || user.level
-          }
+            level: updatedUser?.level || user.level,
+            lpPerTap: updatedUser?.lpPerTap || 2,
+            lpPerHour: updatedUser?.lpPerHour || 250,
+            maxEnergy: updatedUser?.maxEnergy || 1000,
+            energy: updatedUser?.energy || user.energy
+          },
+          effectsApplied: newStatsApplied
         }
       });
 
@@ -184,6 +207,32 @@ router.get('/categories', async (req, res) => {
   } catch (error) {
     console.error('Error fetching upgrade categories:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch categories' });
+  }
+});
+
+// 🆕 NEW: Debug endpoint to manually recalculate user stats
+router.post('/debug/recalculate/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`🔧 [DEBUG] Recalculating stats for user: ${userId}`);
+    
+    const newStats = await upgradeStorage.applyUserUpgradeEffects(userId);
+    const user = await supabaseStorage.getUser(userId);
+    
+    res.json({
+      success: true,
+      message: 'Stats recalculated',
+      oldStats: {
+        lpPerTap: 2, // default
+        lpPerHour: 250, // default  
+        maxEnergy: 1000 // default
+      },
+      newStats,
+      currentUser: user
+    });
+  } catch (error) {
+    console.error('Error recalculating stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to recalculate' });
   }
 });
 
