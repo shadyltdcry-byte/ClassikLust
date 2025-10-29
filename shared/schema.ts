@@ -18,6 +18,7 @@ export const users = pgTable("users", {
   lpPerTap: real("lpPerTap").notNull().default(1.0),
   vipStatus: boolean("vipStatus").notNull().default(false),
   nsfwConsent: boolean("nsfwConsent").notNull().default(false),
+  displayPicture: text("displayPicture"),
   isEvent: boolean("isEvent").notNull().default(false),
   lastTick: timestamp("lastTick").notNull().default(sql`now()`),
   lastWheelSpin: timestamp("lastWheelSpin"),
