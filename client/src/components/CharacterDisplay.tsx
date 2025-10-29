@@ -87,6 +87,38 @@ export default function CharacterDisplay({
 
   const shouldOpenGallery = character?.id === "no-character-selected";
 
+  // ✅ FIXED: Main character image with user displayPicture override
+  const getMainCharacterImage = () => {
+    // 1. First priority: User's custom display picture (filename only)
+    if (user?.displayPicture && user.displayPicture !== 'null' && user.displayPicture.trim() !== '') {
+      console.log('🖼️ [CHARACTER-DISPLAY] Using user displayPicture:', user.displayPicture);
+      // Build URL from filename
+      return `/uploads/${user.displayPicture}`;
+    }
+    
+    // 2. Second priority: Character's imageUrl
+    if (character?.imageUrl && character.imageUrl !== 'null' && character.imageUrl !== '/uploads/undefined') {
+      console.log('🖼️ [CHARACTER-DISPLAY] Using character imageUrl:', character.imageUrl);
+      return character.imageUrl;
+    }
+    
+    // 3. Third priority: Character's avatarPath
+    if (character?.avatarPath && character.avatarPath !== 'null' && character.avatarPath !== '/uploads/undefined') {
+      console.log('🖼️ [CHARACTER-DISPLAY] Using character avatarPath:', character.avatarPath);
+      return character.avatarPath;
+    }
+    
+    // 4. Fourth priority: Character's avatarUrl
+    if (character?.avatarUrl && character.avatarUrl !== 'null' && character.avatarUrl !== '/uploads/undefined') {
+      console.log('🖼️ [CHARACTER-DISPLAY] Using character avatarUrl:', character.avatarUrl);
+      return character.avatarUrl;
+    }
+    
+    // 5. Fallback: Default placeholder
+    console.log('🖼️ [CHARACTER-DISPLAY] Using fallback placeholder');
+    return 'https://via.placeholder.com/300x400/1a1a1a/ff1493?text=👤';
+  };
+
   return (
     <div className="px-4 pb-6">
       <div className="relative bg-black/20 backdrop-blur-sm rounded-3xl p-6 border border-purple-500/30">
@@ -108,19 +140,16 @@ export default function CharacterDisplay({
               </div>
             )}
             <img
-              src={
-                (character?.imageUrl && character.imageUrl !== 'null' && character.imageUrl !== '/uploads/undefined') ? character.imageUrl :
-                (character?.avatarPath && character.avatarPath !== 'null' && character.avatarPath !== '/uploads/undefined') ? character.avatarPath :
-                (character?.avatarUrl && character.avatarUrl !== 'null' && character.avatarUrl !== '/uploads/undefined') ? character.avatarUrl :
-                'https://via.placeholder.com/300x400/1a1a1a/ff1493?text=👤'
-              }
+              src={getMainCharacterImage()}
               alt={character?.name || "Player"}
               onClick={shouldOpenGallery ? onAvatarClick : handleTap}
               onContextMenu={handleAvatarClick}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                if (target.src !== 'https://via.placeholder.com/300x400/1a1a1a/ff1493?text=👤') {
-                  target.src = 'https://via.placeholder.com/300x400/1a1a1a/ff1493?text=👤';
+                const fallback = 'https://via.placeholder.com/300x400/1a1a1a/ff1493?text=👤';
+                if (target.src !== fallback) {
+                  console.warn('🖼️ [CHARACTER-DISPLAY] Image failed to load, using fallback:', target.src);
+                  target.src = fallback;
                 }
               }}
               className={`w-full h-auto aspect-[3/4] object-cover rounded-2xl shadow-2xl cursor-pointer transform hover:scale-105 transition-all duration-200 active:scale-95 ${
@@ -195,6 +224,13 @@ export default function CharacterDisplay({
             )}
           </div>
         </div>
+        
+        {/* 🔍 Debug info (remove in production) */}
+        {process.env.NODE_ENV === 'development' && user?.displayPicture && (
+          <div className="text-xs text-green-400 text-center mt-2 opacity-50">
+            🖼️ Using custom display picture: {user.displayPicture}
+          </div>
+        )}
       </div>
     </div>
   );
