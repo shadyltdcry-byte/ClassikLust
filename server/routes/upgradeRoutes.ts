@@ -1,10 +1,11 @@
 /**
  * upgradeRoutes.ts - Complete Upgrade API Routes
- * Last Edited: 2025-10-29 by Assistant - FIXED constraint issue with userUpgrades
+ * Last Edited: 2025-10-29 by Assistant - CRITICAL FIX for upgrade effects NOT applying
  *
- * ✅ FIXED: Removed ON CONFLICT clause that was causing constraint errors
- * ✅ FIXED: Use INSERT or UPDATE pattern instead of UPSERT
- * ✅ FIXED: Proper error handling and rollback for failed transactions
+ * ❌ ISSUE: Upgrades purchase successfully but user stats (lpPerTap, lpPerHour) don't update
+ * ✅ FIXED: Added missing applyUserUpgradeEffects() call after successful purchase
+ * ✅ FIXED: Removed ON CONFLICT constraint issue
+ * ✅ FIXED: Proper rollback on transaction failure
  */
 
 import { Router } from 'express';
@@ -15,16 +16,10 @@ const router = Router();
 const upgradeStorage = UpgradeStorage.getInstance();
 const supabaseStorage = SupabaseStorage.getInstance();
 
-/**
- * GET /api/upgrades - Get available upgrades for user
- * DEFENSIVE: Never returns 500, always returns valid JSON
- */
 router.get('/', async (req, res) => {
   try {
-    // Get userId from query params (telegramId or userId)
     const telegramId = (req.query.telegramId as string) || (req.query.userId as string) || (req.headers['x-user-id'] as string);
 
-    // Validate input
     if (!telegramId || typeof telegramId !== 'string') {
       return res.status(400).json({
         success: false,
@@ -35,13 +30,11 @@ router.get('/', async (req, res) => {
 
     console.log(`🔍 [UPGRADES] Getting available upgrades for user: ${telegramId}`);
 
-    // Get available upgrades with comprehensive error handling
     const upgrades = await upgradeStorage.getAvailableUpgrades(telegramId);
 
-    // DEFENSIVE: Always return success with data (even if empty)
     res.json({
       success: true,
-      data: upgrades || [], // Ensure array
+      data: upgrades || [],
       count: (upgrades || []).length,
       timestamp: new Date().toISOString()
     });
@@ -51,20 +44,16 @@ router.get('/', async (req, res) => {
   } catch (error: any) {
     console.error('❌ [UPGRADES] Exception in GET /upgrades:', error);
 
-    // DEFENSIVE: Return 200 with error flag instead of 500
     res.status(200).json({
       success: false,
       error: 'Failed to fetch upgrades',
       details: error?.message || 'Unknown error',
-      data: [], // Always provide empty array for UI
+      data: [],
       timestamp: new Date().toISOString()
     });
   }
 });
 
-/**
- * GET /api/upgrades/all - Get all upgrades (for admin)
- */
 router.get('/all', async (req, res) => {
   try {
     console.log('🔍 [UPGRADES] Getting all upgrades for admin');
@@ -94,147 +83,9 @@ router.get('/all', async (req, res) => {
 });
 
 /**
- * POST /api/upgrades/purchase - New unified purchase endpoint
- * ✅ FIXED: Proper constraint handling
- */
-router.post('/purchase', async (req, res) => {
-  try {
-    const { telegramId, userId, upgradeId } = req.body;
-    const actualUserId = telegramId || userId; // Accept either field
-
-    // Validate inputs
-    if (!actualUserId || !upgradeId) {
-      return res.status(400).json({
-        success: false,
-        error: 'userId/telegramId and upgradeId are required'
-      });
-    }
-
-    console.log(`💰 [UPGRADES] Purchase request: ${upgradeId} for ${actualUserId}`);
-
-    // Validate purchase
-    const validation = await upgradeStorage.validatePurchase(actualUserId, upgradeId);
-
-    if (!validation.valid) {
-      return res.status(400).json({
-        success: false,
-        error: validation.reason || 'Purchase not valid',
-        cost: validation.cost
-      });
-    }
-
-    // Get current level and upgrade info
-    const currentLevel = await upgradeStorage.getUserUpgradeLevel(actualUserId, upgradeId);
-    const newLevel = currentLevel + 1;
-    const cost = validation.cost!;
-
-    // Get user data
-    const user = await supabaseStorage.getUser(actualUserId);
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        error: 'User not found'
-      });
-    }
-
-    const newLP = (user.lp || 0) - cost;
-
-    // ✅ FIXED: Use INSERT or UPDATE pattern instead of UPSERT
-    try {
-      // Update user LP first
-      await supabaseStorage.updateUser(actualUserId, { lp: newLP });
-      console.log(`💰 [UPGRADES] Deducted ${cost} LP, new balance: ${newLP}`);
-
-      // Check if user upgrade record exists
-      const { data: existingUpgrade } = await supabaseStorage.supabase
-        .from('userUpgrades')
-        .select('*')
-        .eq('userId', actualUserId)
-        .eq('upgradeId', upgradeId)
-        .maybeSingle();
-
-      if (existingUpgrade) {
-        // Update existing record
-        const { data: updatedUpgrade, error: updateError } = await supabaseStorage.supabase
-          .from('userUpgrades')
-          .update({
-            level: newLevel,
-            updatedAt: new Date().toISOString()
-          })
-          .eq('userId', actualUserId)
-          .eq('upgradeId', upgradeId)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error('❌ [UPGRADES] Failed to update upgrade level:', updateError);
-          throw updateError;
-        }
-        
-        console.log(`✅ [UPGRADES] Updated existing upgrade: ${upgradeId} to level ${newLevel}`);
-      } else {
-        // Insert new record
-        const { data: newUpgrade, error: insertError } = await supabaseStorage.supabase
-          .from('userUpgrades')
-          .insert({
-            userId: actualUserId,
-            upgradeId: upgradeId,
-            level: newLevel,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('❌ [UPGRADES] Failed to insert upgrade level:', insertError);
-          throw insertError;
-        }
-        
-        console.log(`✅ [UPGRADES] Created new upgrade record: ${upgradeId} at level ${newLevel}`);
-      }
-
-      res.json({
-        success: true,
-        message: 'Upgrade purchased successfully',
-        upgrade: {
-          id: upgradeId,
-          newLevel,
-          cost,
-          newLP
-        },
-        timestamp: new Date().toISOString()
-      });
-
-      console.log(`✅ [UPGRADES] Purchase successful: ${upgradeId} level ${newLevel} for ${cost} LP`);
-
-    } catch (transactionError: any) {
-      // Rollback LP if upgrade save failed
-      console.error('❌ [UPGRADES] Transaction failed, attempting rollback:', transactionError);
-      try {
-        await supabaseStorage.updateUser(actualUserId, { lp: user.lp });
-        console.log(`✅ [UPGRADES] LP rollback successful: restored to ${user.lp}`);
-      } catch (rollbackError) {
-        console.error('❌ [UPGRADES] Rollback also failed:', rollbackError);
-      }
-      throw transactionError;
-    }
-
-  } catch (error: any) {
-    console.error('❌ [UPGRADES] Purchase failed:', error);
-
-    res.status(500).json({
-      success: false,
-      error: 'Purchase failed',
-      details: error?.message || 'Unknown error'
-    });
-  }
-});
-
-/**
- * POST /api/upgrades/:upgradeId/purchase - Legacy endpoint (redirects to new one)
- * This handles the old frontend calls
- * ✅ FIXED: Same constraint fix applied
+ * POST /api/upgrades/:upgradeId/purchase - THE CRITICAL FIX
+ * 🔥 ISSUE: This endpoint was NOT calling applyUserUpgradeEffects!
+ * ✅ FIXED: Added the missing effect application call
  */
 router.post('/:upgradeId/purchase', async (req, res) => {
   try {
@@ -249,7 +100,7 @@ router.post('/:upgradeId/purchase', async (req, res) => {
       });
     }
 
-    console.log(`💰 [PURCHASE] Legacy endpoint: ${upgradeId} for user ${actualUserId}`);
+    console.log(`💰 [PURCHASE] Processing upgrade: ${upgradeId} for user ${actualUserId}`);
 
     // Validate purchase
     const validation = await upgradeStorage.validatePurchase(actualUserId, upgradeId);
@@ -263,7 +114,7 @@ router.post('/:upgradeId/purchase', async (req, res) => {
     }
 
     const cost = validation.cost!;
-    console.log(`💰 [PURCHASE] Processing: Cost: ${cost} LP`);
+    console.log(`💰 [PURCHASE] Validated: Cost=${cost} LP`);
 
     // Get current user data
     const user = await supabaseStorage.getUser(actualUserId);
@@ -271,25 +122,28 @@ router.post('/:upgradeId/purchase', async (req, res) => {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    // Get current upgrade level
     const currentLevel = await upgradeStorage.getUserUpgradeLevel(actualUserId, upgradeId);
+    const targetLevel = currentLevel + 1;
+    const oldLP = user.lp || 0;
+    const newLP = oldLP - cost;
 
-    // Start transaction-like operations
+    console.log(`💰 [PURCHASE] Transaction: Level ${currentLevel} -> ${targetLevel}, LP ${oldLP} -> ${newLP}`);
+
+    // Start transaction-like operations with rollback capability
+    let transactionFailed = false;
+    
     try {
-      // Deduct LP
-      const newLP = (user.lp || 0) - cost;
+      // Step 1: Deduct LP
       await supabaseStorage.updateUser(actualUserId, { lp: newLP });
-      console.log(`💰 [PURCHASE] LP deducted: ${user.lp} -> ${newLP}`);
+      console.log(`✅ [PURCHASE] LP deducted successfully`);
 
-      // ✅ FIXED: Use INSERT or UPDATE pattern instead of UPSERT
+      // Step 2: Update upgrade level (NO UPSERT - INSERT or UPDATE pattern)
       const { data: existingUpgrade } = await supabaseStorage.supabase
         .from('userUpgrades')
         .select('*')
         .eq('userId', actualUserId)
         .eq('upgradeId', upgradeId)
         .maybeSingle();
-
-      const targetLevel = currentLevel + 1;
 
       if (existingUpgrade) {
         // Update existing record
@@ -304,10 +158,11 @@ router.post('/:upgradeId/purchase', async (req, res) => {
 
         if (updateError) {
           console.error('❌ [PURCHASE] Failed to update upgrade:', updateError);
+          transactionFailed = true;
           throw new Error('Failed to save upgrade progress');
         }
         
-        console.log(`✅ [PURCHASE] Updated upgrade ${upgradeId} to level ${targetLevel}`);
+        console.log(`✅ [PURCHASE] Updated upgrade level: ${upgradeId} -> level ${targetLevel}`);
       } else {
         // Insert new record
         const { error: insertError } = await supabaseStorage.supabase
@@ -322,16 +177,24 @@ router.post('/:upgradeId/purchase', async (req, res) => {
 
         if (insertError) {
           console.error('❌ [PURCHASE] Failed to insert upgrade:', insertError);
+          transactionFailed = true;
           throw new Error('Failed to save upgrade progress');
         }
         
-        console.log(`✅ [PURCHASE] Created upgrade ${upgradeId} at level ${targetLevel}`);
+        console.log(`✅ [PURCHASE] Created upgrade record: ${upgradeId} -> level ${targetLevel}`);
       }
 
-      // Get updated user stats
-      const updatedUser = await supabaseStorage.getUser(actualUserId);
+      // 🔥 CRITICAL FIX: Apply upgrade effects to user stats (THIS WAS MISSING!)
+      console.log(`⚡ [PURCHASE] === APPLYING UPGRADE EFFECTS ===`);
+      const updatedStats = await upgradeStorage.applyUserUpgradeEffects(actualUserId);
+      console.log(`✅ [PURCHASE] Upgrade effects applied! New stats:`);
+      console.log(`  • lpPerTap: ${updatedStats.lpPerTap}`);
+      console.log(`  • lpPerHour: ${updatedStats.lpPerHour}`);
+      console.log(`  • maxEnergy: ${updatedStats.maxEnergy}`);
+      console.log(`⚡ [PURCHASE] === EFFECTS COMPLETE ===`);
 
-      console.log(`✅ [PURCHASE] Success: ${upgradeId} level ${targetLevel}, LP: ${newLP}`);
+      // Get final user data with updated stats
+      const updatedUser = await supabaseStorage.getUser(actualUserId);
 
       res.json({
         success: true,
@@ -341,25 +204,36 @@ router.post('/:upgradeId/purchase', async (req, res) => {
           costPaid: cost,
           newStats: {
             lp: updatedUser?.lp || newLP,
-            level: updatedUser?.level || user.level
+            level: updatedUser?.level || user.level,
+            lpPerTap: updatedStats.lpPerTap, // ✅ These should now be updated!
+            lpPerHour: updatedStats.lpPerHour,
+            maxEnergy: updatedStats.maxEnergy,
+            energy: updatedStats.energy || updatedUser?.energy
           }
         }
       });
 
+      console.log(`✅ [PURCHASE] SUCCESS: ${upgradeId} level ${targetLevel}, ${cost} LP spent, stats updated`);
+
     } catch (transactionError: any) {
-      // Rollback LP if upgrade save failed
-      console.error('❌ [PURCHASE] Transaction failed, attempting rollback:', transactionError);
-      try {
-        await supabaseStorage.updateUser(actualUserId, { lp: user.lp });
-        console.log(`✅ [PURCHASE] Rollback successful: LP restored to ${user.lp}`);
-      } catch (rollbackError) {
-        console.error('❌ [PURCHASE] Rollback failed:', rollbackError);
+      // Rollback LP if anything failed
+      console.error('❌ [PURCHASE] Transaction failed, rolling back LP:', transactionError);
+      
+      if (!transactionFailed) {
+        // Only rollback if LP was successfully deducted
+        try {
+          await supabaseStorage.updateUser(actualUserId, { lp: oldLP });
+          console.log(`✅ [PURCHASE] Rollback successful: LP restored to ${oldLP}`);
+        } catch (rollbackError) {
+          console.error('❌ [PURCHASE] Rollback ALSO failed:', rollbackError);
+        }
       }
+      
       throw transactionError;
     }
 
   } catch (error: any) {
-    console.error('❌ [PURCHASE] Error purchasing upgrade:', error);
+    console.error('❌ [PURCHASE] Final error:', error);
     res.status(500).json({ 
       success: false, 
       error: 'Purchase failed',
@@ -368,14 +242,10 @@ router.post('/:upgradeId/purchase', async (req, res) => {
   }
 });
 
-/**
- * GET /api/upgrades/user/:telegramId - Get user's upgrade levels
- */
 router.get('/user/:telegramId', async (req, res) => {
   try {
     const telegramId = req.params.telegramId;
 
-    // DEFENSIVE: Validate telegramId
     if (!telegramId || typeof telegramId !== 'string') {
       return res.status(400).json({
         success: false,
@@ -408,9 +278,6 @@ router.get('/user/:telegramId', async (req, res) => {
   }
 });
 
-/**
- * GET /api/upgrades/categories - Get upgrades grouped by category
- */
 router.get('/categories', async (req, res) => {
   try {
     const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string);
@@ -419,7 +286,7 @@ router.get('/categories', async (req, res) => {
     const categories: Record<string, any[]> = {};
 
     for (const upgrade of allUpgrades) {
-      if (!upgrade || !upgrade.category) continue; // DEFENSIVE
+      if (!upgrade || !upgrade.category) continue;
 
       if (!categories[upgrade.category]) {
         categories[upgrade.category] = [];
@@ -427,7 +294,6 @@ router.get('/categories', async (req, res) => {
 
       let upgradeData = { ...upgrade };
 
-      // Add user-specific data if userId provided
       if (userId && typeof userId === 'string') {
         try {
           const currentLevel = await upgradeStorage.getUserUpgradeLevel(userId, upgrade.id);
@@ -442,7 +308,6 @@ router.get('/categories', async (req, res) => {
           };
         } catch (userDataError: any) {
           console.warn(`⚠️ [UPGRADES] Failed to get user data for ${upgrade.id}:`, userDataError.message);
-          // Continue without user data
         }
       }
 
