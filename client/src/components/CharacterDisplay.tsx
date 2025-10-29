@@ -116,7 +116,7 @@ export default function CharacterDisplay({
     
     // 5. Fallback: Default placeholder
     console.log('🖼️ [CHARACTER-DISPLAY] Using fallback placeholder');
-    return 'https://via.placeholder.com/300x400/1a1a1a/ff1493?text=👤';
+    return 'https://via.placeholder.com/600x800/1a1a1a/ff1493?text=👤';
   };
 
   return (
@@ -128,8 +128,8 @@ export default function CharacterDisplay({
           <p className="text-gray-400 text-sm">{character?.backstory || "Tap to interact!"}</p>
         </div>
 
-        {/* Character Main Image Container */}
-        <div className="relative mx-auto max-w-[516px] mb-6">
+        {/* ✅ FIXED: Character Main Image Container - DOUBLED SIZE */}
+        <div className="relative mx-auto max-w-[1032px] mb-6"> {/* Was 516px, now 1032px */}
           <div className="relative">
             {/* Luna's Error Alert Notification Badge */}
             {isLuna && unreadCount > 0 && (
@@ -146,7 +146,7 @@ export default function CharacterDisplay({
               onContextMenu={handleAvatarClick}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                const fallback = 'https://via.placeholder.com/300x400/1a1a1a/ff1493?text=👤';
+                const fallback = 'https://via.placeholder.com/600x800/1a1a1a/ff1493?text=👤'; // ✅ FIXED: Bigger fallback too
                 if (target.src !== fallback) {
                   console.warn('🖼️ [CHARACTER-DISPLAY] Image failed to load, using fallback:', target.src);
                   target.src = fallback;
@@ -156,7 +156,8 @@ export default function CharacterDisplay({
                 tapEffect ? 'tap-effect scale-95' : ''
               } ${user.energy <= 0 ? 'grayscale opacity-50' : ''}`}
               style={{
-                filter: user.energy <= 0 ? 'grayscale(100%)' : 'none'
+                filter: user.energy <= 0 ? 'grayscale(100%)' : 'none',
+                maxHeight: '800px' // ✅ DOUBLED: Was 400px, now 800px
               }}
               title="Right-click or Ctrl+Click to open gallery"
             />
@@ -168,45 +169,45 @@ export default function CharacterDisplay({
               }`}
             />
 
-            {/* Floating Hearts with LP Display */}
+            {/* ✅ FIXED: Floating Hearts with LP Display - BIGGER for larger image */}
             {tapEffect && (
               <div className="absolute inset-0 pointer-events-none">
                 {/* Heart 1 - Top Left with Custom Image */}
                 <div className="absolute top-1/4 left-1/4 animate-float-up flex items-center gap-2">
-                  <img src="/uploads/floatinghearts.png" alt="hearts" className="w-6 h-6" />
-                  <span className="text-pink-500 font-bold text-lg opacity-80 animate-fade-out">
+                  <img src="/uploads/floatinghearts.png" alt="hearts" className="w-8 h-8" /> {/* Was w-6 h-6 */}
+                  <span className="text-pink-500 font-bold text-2xl opacity-80 animate-fade-out"> {/* Was text-lg */}
                     +{lpPerTap || user.lpPerTap || 1}
                   </span>
                 </div>
 
                 {/* Heart 2 - Top Right with Emoji Heart */}
                 <div className="absolute top-1/3 right-1/3 animate-float-up flex items-center gap-2" style={{ animationDelay: '0.4s' }}>
-                  <span className="text-red-400 text-xl">❤️</span>
-                  <span className="text-pink-500 font-bold text-lg opacity-80 animate-fade-out" style={{ animationDelay: '0.4s' }}>
+                  <span className="text-red-400 text-3xl">❤️</span> {/* Was text-xl */}
+                  <span className="text-pink-500 font-bold text-2xl opacity-80 animate-fade-out" style={{ animationDelay: '0.4s' }}>
                     +{lpPerTap || user.lpPerTap || 1}
                   </span>
                 </div>
 
                 {/* Heart 3 - Center with Different Emoji */}
                 <div className="absolute top-1/2 left-1/2 animate-float-up flex items-center gap-2" style={{ animationDelay: '0.6s' }}>
-                  <span className="text-pink-400 text-xl">💕</span>
-                  <span className="text-pink-500 font-bold text-lg opacity-80 animate-fade-out" style={{ animationDelay: '0.6s' }}>
+                  <span className="text-pink-400 text-3xl">💕</span> {/* Was text-xl */}
+                  <span className="text-pink-500 font-bold text-2xl opacity-80 animate-fade-out" style={{ animationDelay: '0.6s' }}>
                     +{lpPerTap || user.lpPerTap || 1}
                   </span>
                 </div>
 
                 {/* Heart 4 - Bottom with Custom Image */}
                 <div className="absolute top-2/3 left-2/3 animate-float-up flex items-center gap-2" style={{ animationDelay: '0.8s' }}>
-                  <img src="/uploads/floatinghearts.png" alt="hearts" className="w-5 h-5" />
-                  <span className="text-pink-500 font-bold text-lg opacity-80 animate-fade-out" style={{ animationDelay: '0.8s' }}>
+                  <img src="/uploads/floatinghearts.png" alt="hearts" className="w-7 h-7" /> {/* Was w-5 h-5 */}
+                  <span className="text-pink-500 font-bold text-2xl opacity-80 animate-fade-out" style={{ animationDelay: '0.8s' }}>
                     +{lpPerTap || user.lpPerTap || 1}
                   </span>
                 </div>
 
                 {/* Heart 5 - Another Emoji Heart */}
                 <div className="absolute top-3/4 left-1/4 animate-float-up flex items-center gap-2" style={{ animationDelay: '0.9s' }}>
-                  <span className="text-red-500 text-xl">💖</span>
-                  <span className="text-pink-500 font-bold text-lg opacity-80 animate-fade-out" style={{ animationDelay: '0.9s' }}>
+                  <span className="text-red-500 text-3xl">💖</span> {/* Was text-xl */}
+                  <span className="text-pink-500 font-bold text-2xl opacity-80 animate-fade-out" style={{ animationDelay: '0.9s' }}>
                     +{lpPerTap || user.lpPerTap || 1}
                   </span>
                 </div>
@@ -216,21 +217,16 @@ export default function CharacterDisplay({
             {user.energy <= 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl">
                 <div className="text-center text-white">
-                  <div className="text-4xl mb-2">🔋</div>
-                  <p className="text-sm">No Energy!</p>
-                  <p className="text-xs text-gray-400">Wait for energy to regenerate</p>
+                  <div className="text-6xl mb-4">🔋</div> {/* Was text-4xl mb-2 */}
+                  <p className="text-lg">No Energy!</p> {/* Was text-sm */}
+                  <p className="text-sm text-gray-400">Wait for energy to regenerate</p> {/* Was text-xs */}
                 </div>
               </div>
             )}
           </div>
         </div>
         
-        {/* 🔍 Debug info (remove in production) */}
-        {process.env.NODE_ENV === 'development' && user?.displayPicture && (
-          <div className="text-xs text-green-400 text-center mt-2 opacity-50">
-            🖼️ Using custom display picture: {user.displayPicture}
-          </div>
-        )}
+        {/* ✅ REMOVED: Debug info completely removed per request */}
       </div>
     </div>
   );
