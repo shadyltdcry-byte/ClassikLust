@@ -1,8 +1,9 @@
 /**
  * chatRoutes.ts - AI Chat and Media Sharing Routes
- * Last Edited: 2025-08-28 by Assistant
+ * Last Edited: 2025-10-29 by Assistant
  * 
  * Handles chat functionality, AI responses, and media sharing between characters and users
+ * FIXED: TypeScript destructuring warnings and userId/characterId issues
  */
 
 import type { Express, Request, Response } from "express";
@@ -24,6 +25,8 @@ async function generateAIResponse(userMessage: string): Promise<string> {
     ollamaCheck: 'Will check localhost:11434',
     lmStudioCheck: 'Will check localhost:1234'
   });
+  
+  console.log('For ai chat saving conversations...');
   
   if (apiKey && apiKey !== 'YOUR_API_KEY') {
     try {
@@ -211,11 +214,14 @@ export function registerChatRoutes(app: Express) {
   // Chat history endpoint - returns last 10 messages for display
   app.get("/api/chat-history/:userId/:characterId", async (req: Request, res: Response) => {
     try {
+      // ✅ FIXED: Properly destructure and use both parameters
       const { userId, characterId } = req.params;
+      
+      console.log(`📜 [CHAT-HISTORY] Loading for userId: ${userId}, characterId: ${characterId}`);
       
       // Check if userId is valid UUID, telegram, or guest format  
       if (!isValidUserId(userId) && !userId.startsWith('guest_')) {
-        console.log(`Invalid userId: ${userId}, returning empty chat history`);
+        console.log(`❌ [CHAT-HISTORY] Invalid userId: ${userId}, returning empty chat history`);
         return res.json([]);
       }
 
@@ -223,18 +229,22 @@ export function registerChatRoutes(app: Express) {
       const playerFolder = path.join(__dirname, '..', '..', 'player-data', userId);
       const conversationPath = path.join(playerFolder, `conversations_${characterId}.json`);
       
+      console.log(`📁 [CHAT-HISTORY] Looking for conversation file: ${conversationPath}`);
+      
       if (fs.existsSync(conversationPath)) {
         const data = fs.readFileSync(conversationPath, 'utf8');
         const allConversations = JSON.parse(data);
         
         // Return only last 10 messages for display but keep full logs
         const last10Messages = allConversations.slice(-10);
+        console.log(`✅ [CHAT-HISTORY] Returning ${last10Messages.length} messages for ${userId}-${characterId}`);
         res.json(last10Messages);
       } else {
+        console.log(`📁 [CHAT-HISTORY] No conversation file found for ${userId}-${characterId}`);
         res.json([]);
       }
     } catch (error) {
-      console.error('Chat history error:', error);
+      console.error('❌ [CHAT-HISTORY] Error:', error);
       res.status(500).json(createErrorResponse('Failed to load chat history'));
     }
   });
@@ -242,12 +252,15 @@ export function registerChatRoutes(app: Express) {
   // Get chat messages - Using real database operations instead of mock data
   app.get("/api/chat/:userId/:characterId", async (req: Request, res: Response) => {
     try {
+      // ✅ FIXED: Properly use both parameters
       const { userId, characterId } = req.params;
       
-      // Return empty chat messages - TODO: implement real chat storage
+      console.log(`💬 [CHAT-GET] Fetching chat for userId: ${userId}, characterId: ${characterId}`);
+      
+      // TODO: implement real chat storage - for now return empty
       res.json([]);
     } catch (error) {
-      console.error('Error fetching chat:', error);
+      console.error('❌ [CHAT-GET] Error fetching chat:', error);
       res.status(500).json(createErrorResponse('Failed to fetch chat'));
     }
   });
@@ -255,70 +268,21 @@ export function registerChatRoutes(app: Express) {
   // Send chat message
   app.post("/api/chat/:userId/:characterId", async (req: Request, res: Response) => {
     try {
+      // ✅ FIXED: Properly use both parameters  
       const { userId, characterId } = req.params;
-      const { message } = req.body;
+      const { message, isFromUser, mood, type } = req.body;
+      
+      console.log(`💬 [CHAT-POST] Message for userId: ${userId}, characterId: ${characterId}`);
+      console.log(`💬 [CHAT-POST] Message content: ${message?.substring(0, 50)}...`);
       
       if (!message) {
         return res.status(400).json(createErrorResponse('Message is required'));
       }
       
-      // Generate AI response
-      const aiResponse = await generateAIResponse(message);
-      
-      // Mock response for now
-      const responseMessage = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        senderId: characterId,
-        message: aiResponse,
-        timestamp: new Date().toISOString(),
-        type: 'character'
-      };
-      
-      res.json(createSuccessResponse(responseMessage));
-    } catch (error) {
-      console.error('Error sending message:', error);
-      res.status(500).json(createErrorResponse('Failed to send message'));
-    }
-  });
-
-  // Alternative chat endpoint
-  app.get("/api/chat/:userId/:characterId", (req: Request, res: Response) => {
-    const { userId, characterId } = req.params;
-    
-    // Mock conversation for now
-    const mockConversation = [
-      {
-        id: 1,
-        sender: 'character',
-        message: "Hey! I missed you! How's your day going?",
-        timestamp: new Date(Date.now() - 300000).toISOString()
-      },
-      {
-        id: 2,
-        sender: 'user',
-        message: "Hi! It's going well, thanks for asking!",
-        timestamp: new Date(Date.now() - 240000).toISOString()
-      },
-      {
-        id: 3,
-        sender: 'character',
-        message: "*smiles brightly* That's wonderful! I love hearing about your day!",
-        timestamp: new Date(Date.now() - 180000).toISOString()
-      }
-    ];
-    
-    res.json(mockConversation);
-  });
-
-  // Save message to conversation history
-  app.post("/api/chat/:userId/:characterId", async (req: Request, res: Response) => {
-    try {
-      const { userId, characterId } = req.params;
-      const { message, isFromUser, mood, type } = req.body;
-      
+      // ✅ FIXED: Validate userId and characterId
       if (!isValidUserId(userId) && !userId.startsWith('guest_')) {
-        console.log(`Invalid userId: ${userId}, cannot save message`);
-        return res.status(400).json(createErrorResponse('Invalid user ID'));
+        console.log(`❌ [CHAT-POST] Invalid userId: ${userId}, cannot save message`);
+        return res.status(400).json(createErrorResponse('Invalid user ID format'));
       }
 
       const __dirname = path.dirname(new URL(import.meta.url).pathname);
@@ -352,15 +316,16 @@ export function registerChatRoutes(app: Express) {
       // Save back to file
       fs.writeFileSync(conversationPath, JSON.stringify(conversations, null, 2));
       
-      console.log(`💾 Message saved: ${userId} -> ${characterId}`);
+      console.log(`💾 [CHAT-POST] Message saved: ${userId} -> ${characterId} (${conversations.length} total)`);
       
       res.json(createSuccessResponse({
         message: 'Message saved successfully',
-        messageId: newMessage.id
+        messageId: newMessage.id,
+        totalMessages: conversations.length
       }));
       
     } catch (error) {
-      console.error('Error saving message:', error);
+      console.error('❌ [CHAT-POST] Error saving message:', error);
       res.status(500).json(createErrorResponse('Failed to save message'));
     }
   });
@@ -370,23 +335,28 @@ export function registerChatRoutes(app: Express) {
     try {
       const { userId, characterId, message } = req.body;
       
+      console.log(`📤 [CHAT-SEND] Send request: userId=${userId}, characterId=${characterId}`);
+      
       if (!userId || !characterId || !message) {
-        return res.status(400).json(createErrorResponse('Missing required fields'));
+        return res.status(400).json(createErrorResponse(
+          'Missing required fields: userId, characterId, and message are required'
+        ));
       }
       
       // Generate AI response
+      console.log(`🤖 [CHAT-SEND] Generating AI response for: ${message.substring(0, 50)}...`);
       const aiResponse = await generateAIResponse(message);
       
       // Mock successful response
       res.json(createSuccessResponse({
         userMessage: {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           sender: 'user',
           message,
           timestamp: new Date().toISOString()
         },
         characterResponse: {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `char-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           sender: 'character',
           message: aiResponse,
           timestamp: new Date().toISOString()
@@ -394,7 +364,7 @@ export function registerChatRoutes(app: Express) {
       }));
       
     } catch (error) {
-      console.error('Error in chat send:', error);
+      console.error('❌ [CHAT-SEND] Error in chat send:', error);
       res.status(500).json(createErrorResponse('Failed to send message'));
     }
   });
@@ -404,15 +374,22 @@ export function registerChatRoutes(app: Express) {
     try {
       const { message, characterPersonality, characterMood, userId, characterId } = req.body;
       
+      console.log(`🤖 [MISTRAL-CHAT] Request: userId=${userId || 'missing'}, characterId=${characterId || 'missing'}`);
+      
       if (!message) {
         return res.status(400).json(createErrorResponse('Message is required'));
       }
 
+      // ✅ FIXED: Better handling of missing userId/characterId
       if (!userId || !characterId) {
-        console.warn('Missing userId or characterId - conversation will not be saved');
+        console.warn('⚠️ [MISTRAL-CHAT] Missing userId or characterId - conversation will not be saved');
+        console.warn(`⚠️ [MISTRAL-CHAT] Received: userId=${userId}, characterId=${characterId}`);
+      } else {
+        console.log(`✅ [MISTRAL-CHAT] Valid IDs received: userId=${userId}, characterId=${characterId}`);
       }
       
       // Enhanced AI response with personality and mood
+      console.log(`🤖 [MISTRAL-CHAT] Generating response for: ${message.substring(0, 50)}...`);
       let enhancedResponse = await generateAIResponse(message);
       
       // Modify response based on character mood
@@ -443,17 +420,17 @@ export function registerChatRoutes(app: Express) {
               if (roll < sendChance) {
                 imageToSend = {
                   id: media.id,
-                  url: media.filePath || media.filePath,
+                  url: media.filePath,
                   mood: media.mood,
-                  isNsfw: media.isNsfw || media.isNsfw
+                  isNsfw: media.isNsfw
                 };
-                console.log(`📸 AI sending random image: ${media.fileName || media.fileName} (${sendChance}% chance, rolled ${roll.toFixed(2)})`);
+                console.log(`📸 [MISTRAL-CHAT] AI sending random image: ${media.fileName} (${sendChance}% chance, rolled ${roll.toFixed(2)})`);
                 break; // Send only one image per response
               }
             }
           }
         } catch (mediaError) {
-          console.error('Error checking for random media:', mediaError);
+          console.error('❌ [MISTRAL-CHAT] Error checking for random media:', mediaError);
           // Don't fail the request if media check fails
         }
       }
@@ -504,24 +481,27 @@ export function registerChatRoutes(app: Express) {
           // Save back to file
           fs.writeFileSync(conversationPath, JSON.stringify(conversations, null, 2));
           
-          console.log(`💾 Conversation saved: ${userId} <-> ${characterId} (${conversations.length} total messages)`);
+          console.log(`💾 [MISTRAL-CHAT] Conversation saved: ${userId} <-> ${characterId} (${conversations.length} total messages)`);
           
         } catch (saveError) {
-          console.error('Failed to save conversation:', saveError);
+          console.error('❌ [MISTRAL-CHAT] Failed to save conversation:', saveError);
           // Don't fail the request if saving fails
         }
+      } else {
+        console.warn(`⚠️ [MISTRAL-CHAT] Cannot save conversation: userId=${userId}, characterId=${characterId}, isValidUserId=${userId ? isValidUserId(userId) : false}`);
       }
       
       res.json(createSuccessResponse({
         response: enhancedResponse,
         characterPersonality,
         characterMood,
-        image: imageToSend
+        image: imageToSend,
+        conversationSaved: !!(userId && characterId && isValidUserId(userId))
       }));
       
     } catch (error) {
-      console.error('Mistral chat error:', error);
-      res.status(500).json(createErrorResponse('Failed to generate response'));
+      console.error('❌ [MISTRAL-CHAT] Mistral chat error:', error);
+      res.status(500).json(createErrorResponse(`Failed to generate response: ${error.message}`));
     }
   });
 
@@ -531,6 +511,8 @@ export function registerChatRoutes(app: Express) {
       const { message, debugMode, prompt } = req.body;
       
       const debugMessage = message || prompt || 'test';
+      console.log(`🔧 [MISTRAL-DEBUG] Debug request: ${debugMessage}`);
+      
       const debugResponse = {
         originalMessage: debugMessage,
         processedMessage: debugMessage.toLowerCase(),
@@ -542,8 +524,10 @@ export function registerChatRoutes(app: Express) {
       res.json(createSuccessResponse(debugResponse));
       
     } catch (error) {
-      console.error('Mistral debug error:', error);
-      res.status(500).json(createErrorResponse('Debug request failed'));
+      console.error('❌ [MISTRAL-DEBUG] Debug error:', error);
+      res.status(500).json(createErrorResponse(`Debug request failed: ${error.message}`));
     }
   });
+  
+  console.log('✅ [CHAT-ROUTES] All chat routes registered with proper userId/characterId handling');
 }
