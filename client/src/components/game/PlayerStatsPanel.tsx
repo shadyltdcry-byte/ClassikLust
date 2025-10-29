@@ -17,66 +17,6 @@ export default function PlayerStatsPanel({
   onAvatarClick,
   onOpenGallery
 }: PlayerStatsPanelProps) {
-  
-  // ✅ FIXED: Get real Telegram username from user data
-  const getPlayerName = (): string => {
-    // Priority: user.username > user.name > playerData.username > playerData.name > fallback
-    if (user?.username && user.username !== 'Player' && user.username.trim() !== '') {
-      return user.username;
-    }
-    
-    if (user?.name && user.name !== 'Player' && user.name.trim() !== '') {
-      return user.name;
-    }
-    
-    if (playerData?.username && playerData.username !== 'Player' && playerData.username.trim() !== '') {
-      return playerData.username;
-    }
-    
-    if (playerData?.name && playerData.name !== 'Player' && playerData.name.trim() !== '') {
-      return playerData.name;
-    }
-    
-    // If user ID contains telegram info, extract partial name
-    const userId = user?.id || playerData?.id;
-    if (userId && typeof userId === 'string') {
-      if (userId.startsWith('telegram_')) {
-        const telegramId = userId.replace('telegram_', '');
-        return `User_${telegramId.slice(-4)}`; // Show last 4 digits
-      }
-      
-      if (userId.length > 8) {
-        return `User_${userId.slice(-4)}`; // Show last 4 chars of any long ID
-      }
-    }
-    
-    return 'Player'; // Final fallback
-  };
-  
-  // ✅ FIXED: Get main character image with user displayPicture override
-  const getAvatarImage = (): string => {
-    // 1. Priority: User's custom display picture (overrides character)
-    if (user?.displayPicture && user.displayPicture !== 'null' && user.displayPicture.trim() !== '') {
-      return `/uploads/${user.displayPicture}`;
-    }
-    
-    // 2. Selected character images
-    if (selectedCharacter?.imageUrl) {
-      return selectedCharacter.imageUrl;
-    }
-    
-    if (selectedCharacter?.avatarUrl) {
-      return selectedCharacter.avatarUrl;
-    }
-    
-    if (selectedCharacter?.avatarPath) {
-      return selectedCharacter.avatarPath;
-    }
-    
-    // 3. Fallback
-    return "https://via.placeholder.com/64x64/1a1a1a/ff1493?text=👤";
-  };
-
   return (
     <div className="flex justify-between items-center p-2 bg-gradient-to-r from-purple-900/40 via-pink-900/30 to-red-900/40 border-b-2 border-gradient-to-r from-pink-500/50 via-purple-500/50 to-red-500/50 flex-shrink-0 backdrop-blur-md relative overflow-hidden">
       {/* Animated Background Glow */}
@@ -86,18 +26,21 @@ export default function PlayerStatsPanel({
       {/* Left Section: Avatar + Username + Level */}
       <div className="flex items-center gap-0.5">
         <div className="flex flex-col items-center gap-0.5">
-          {/* ✅ FIXED: Display real Telegram username */}
+          {/* USERNAME: Only show real username if available, fallback to ShadyLTDx */}
           <p className="text-transparent bg-gradient-to-r from-pink-200 via-purple-200 to-blue-200 bg-clip-text text-xs font-bold text-center tracking-wider drop-shadow-lg">
-            {getPlayerName()}
+            {(user?.username && user.username !== 'Player') ? user.username : 
+             (playerData?.username && playerData.username !== 'Player') ? playerData.username :
+             'ShadyLTDx'}
           </p>
+          
+          {/* AVATAR: RESTORED TO ORIGINAL - NO displayPicture override */}
           <div
             className="cursor-pointer hover:scale-105 transition-transform duration-200"
             onClick={onAvatarClick}
             title="Click to view/chat with character"
           >
-            {/* ✅ FIXED: Avatar with user displayPicture override */}
             <img
-              src={getAvatarImage()}
+              src={selectedCharacter?.avatarUrl || selectedCharacter?.imageUrl || selectedCharacter?.avatarPath || "https://via.placeholder.com/64x64/1a1a1a/ff1493?text=👤"}
               alt="Character Avatar"
               loading="eager"
               onLoad={(e) => {
@@ -106,9 +49,8 @@ export default function PlayerStatsPanel({
               }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                const fallback = "https://via.placeholder.com/64x64/1a1a1a/ff1493?text=👤";
-                if (target.src !== fallback) {
-                  target.src = fallback;
+                if (target.src !== "https://via.placeholder.com/64x64/1a1a1a/ff1493?text=👤") {
+                  target.src = "https://via.placeholder.com/64x64/1a1a1a/ff1493?text=👤";
                 }
                 target.style.opacity = '1';
               }}
@@ -231,14 +173,6 @@ export default function PlayerStatsPanel({
       >
         <Sparkles className="w-5 h-5 text-purple-300 animate-pulse" />
       </button>
-      
-      {/* 🔍 Debug info (remove in production) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="absolute bottom-0 left-0 text-[8px] text-green-400 opacity-50 bg-black/20 px-1">
-          👤 {getPlayerName()} | ID: {(user?.id || playerData?.id || 'none').slice(-6)}
-          {user?.displayPicture && ` | DP: ${user.displayPicture}`}
-        </div>
-      )}
     </div>
   );
 }
