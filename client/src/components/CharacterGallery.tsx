@@ -85,7 +85,7 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
   // 🆕 NEW: Set display picture mutation
   const setDisplayPictureMutation = useMutation({
     mutationFn: async (fileName: string) => {
-      console.log('🖼️ [GALLERY] Setting display picture:', fileName;
+      console.log('🖼️ [GALLERY] Setting display picture:', fileName);
       const response = await apiRequest('POST', '/api/user/set-display-picture', {
         userId: user?.id || userId,
         fileName
