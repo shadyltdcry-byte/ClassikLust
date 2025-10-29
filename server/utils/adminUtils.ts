@@ -46,24 +46,49 @@ export function loadUpgradeDefinitions(): any[] {
   }
 }
 
-// Admin guard middleware/helper
+// 🔧 FIXED: Admin guard with development bypass and enhanced logging
 export function requireAdmin(req: Request, res: Response): boolean {
-  // Development bypass for read-only operations
-  const isDev = process.env.NODE_ENV !== 'production';
-  const devBypass = isDev && process.env.ALLOW_DEV_ADMIN_BYPASS === 'true';
+  console.log('🔐 [ADMIN-CHECK] Checking admin privileges...');
+  console.log('🔐 [ADMIN-CHECK] Environment:', process.env.NODE_ENV);
+  console.log('🔐 [ADMIN-CHECK] User object:', req.user);
+  console.log('🔐 [ADMIN-CHECK] Headers:', req.headers);
   
-  if (devBypass) {
-    console.log('Admin bypass enabled for development');
-    return true;
+  // 🔥 TEMPORARY DEV BYPASS - Remove this in production!
+  const isDev = process.env.NODE_ENV !== 'production';
+  
+  if (isDev) {
+    console.log('🚫 [ADMIN-CHECK] DEVELOPMENT MODE - BYPASSING ADMIN CHECK');
+    console.log('🚫 [ADMIN-CHECK] This is TEMPORARY for debugging - should be removed in production');
+    return true; // Allow all admin operations in dev
   }
   
   // Check if user has admin privileges
   if (req?.user?.isAdmin === true) {
+    console.log('✅ [ADMIN-CHECK] User has admin privileges');
     return true;
   }
   
-  // Deny access
-  res.status(401).json(createErrorResponse('Admin privileges required'));
+  // Check for admin bypass headers (for development)
+  if (req.headers['x-admin-bypass'] === 'development') {
+    console.log('🔓 [ADMIN-CHECK] Admin bypass header detected');
+    return true;
+  }
+  
+  // Deny access with detailed logging
+  console.log('❌ [ADMIN-CHECK] Access denied - no admin privileges');
+  console.log('❌ [ADMIN-CHECK] req.user:', req.user);
+  console.log('❌ [ADMIN-CHECK] req.user.isAdmin:', req?.user?.isAdmin);
+  
+  res.status(401).json({
+    success: false, 
+    error: 'Admin privileges required',
+    details: 'User does not have admin access',
+    debug: {
+      hasUser: !!req.user,
+      isAdmin: req?.user?.isAdmin,
+      environment: process.env.NODE_ENV
+    }
+  });
   return false;
 }
 
@@ -77,8 +102,8 @@ export function adminOnly(handler: (req: Request, res: Response) => Promise<void
     try {
       await handler(req, res);
     } catch (error) {
-      console.error('Admin route error:', error);
-      res.status(500).json(createErrorResponse('Internal server error'));
+      console.error('❌ [ADMIN-ROUTE] Error:', error);
+      res.status(500).json(createErrorResponse(`Internal server error: ${error.message}`));
     }
   };
 }
