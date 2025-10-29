@@ -4690,5 +4690,61 @@
     "timestamp": "2025-10-29T04:24:58.923Z",
     "type": "text",
     "mood": "alert"
+  },
+  {
+    "id": "luna-alert-1761712748365-bfr6n755t",
+    "content": "🌙 Heads up babe, System might need looked at. Luna Error Monitor - Watching for any errors. (4:39:08 AM)",
+    "sender": "character",
+    "timestamp": "2025-10-29T04:39:08.365Z",
+    "type": "text",
+    "mood": "alert"
+  },
+  {
+    "id": "luna-alert-1761712787890-7frff458t",
+    "content": "🌙 I noticed something weird in System @ 4:39:47 AM. Luna Error Monitor - Watching for any errors.",
+    "sender": "character",
+    "timestamp": "2025-10-29T04:39:47.890Z",
+    "type": "text",
+    "mood": "alert"
+  },
+  {
+    "id": "luna-alert-1761713159842-yg0p9cbvc",
+    "content": "🌙 Heads up babe, System might need looked at. Luna Error Monitor - Watching for any errors. (4:45:59 AM)",
+    "sender": "character",
+    "timestamp": "2025-10-29T04:45:59.842Z",
+    "type": "text",
+    "mood": "alert"
+  },
+  {
+    "id": "luna-alert-1761713220775-01k9ud8td",
+    "content": "🌙 Heads up babe, System might need looked at. Luna Error Monitor - Watching for any errors. (4:47:00 AM)",
+    "sender": "character",
+    "timestamp": "2025-10-29T04:47:00.775Z",
+    "type": "text",
+    "mood": "alert"
+  },
+  {
+    "id": "luna-alert-1761713277227-yh73s3ncp",
+    "content": "🌙 I noticed something weird in System @ 4:47:57 AM. Luna Error Monitor - Watching for any errors.",
+    "sender": "character",
+    "timestamp": "2025-10-29T04:47:57.227Z",
+    "type": "text",
+    "mood": "alert"
+  },
+  {
+    "id": "luna-alert-1761713368449-1cjabck39",
+    "content": "🌙 Hey babe, just a heads up - there's a warning in System: Luna Error Monitor - Watching for any errors.",
+    "sender": "character",
+    "timestamp": "2025-10-29T04:49:28.449Z",
+    "type": "text",
+    "mood": "alert"
+  },
+  {
+    "id": "luna-alert-1761713481867-s52civkqj",
+    "content": "🌙 I noticed something weird in System @ 4:51:21 AM. Luna Error Monitor - Watching for any errors.",
+    "sender": "character",
+    "timestamp": "2025-10-29T04:51:21.867Z",
+    "type": "text",
+    "mood": "alert"
   }
 ]
