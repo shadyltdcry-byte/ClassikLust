@@ -33,7 +33,7 @@ export default function PlayerStatsPanel({
              'ShadyLTDx'}
           </p>
           
-          {/* AVATAR: RESTORED TO ORIGINAL - NO displayPicture override */}
+          {/* ✅ FIXED: AVATAR BACK TO ORIGINAL - NO displayPicture override */}
           <div
             className="cursor-pointer hover:scale-105 transition-transform duration-200"
             onClick={onAvatarClick}
