@@ -65,39 +65,113 @@ export const config = {
 const supabase = new SupabaseStorage(); // TODO: Replace with singleton
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // 🔥 COMPREHENSIVE ERROR LOGGING
+  console.log(`🖼️ [MEDIA-UPLOAD] === STARTING UPLOAD HANDLER ===`);
+  console.log(`🖼️ [MEDIA-UPLOAD] Method: ${req.method}`);
+  console.log(`🖼️ [MEDIA-UPLOAD] URL: ${req.url}`);
+  console.log(`🖼️ [MEDIA-UPLOAD] Headers:`, req.headers);
+  
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    console.log(`❌ [MEDIA-UPLOAD] Method not allowed: ${req.method}`);
+    return res.status(405).json({ 
+      success: false, 
+      error: 'Method not allowed',
+      details: `Expected POST, got ${req.method}`,
+      allowedMethods: ['POST']
+    });
   }
 
   try {
+    console.log(`🖼️ [MEDIA-UPLOAD] Setting up multer middleware...`);
+    
     // Use multer middleware
     const uploadMiddleware = upload.array('files', 10); // Allow up to 10 files
     
     await new Promise<void>((resolve, reject) => {
       uploadMiddleware(req as any, res as any, (err) => {
-        if (err) reject(err);
-        else resolve();
+        if (err) {
+          console.error(`❌ [MEDIA-UPLOAD] Multer error:`, {
+            message: err.message,
+            code: err.code,
+            field: err.field,
+            stack: err.stack
+          });
+          reject(err);
+        } else {
+          console.log(`✅ [MEDIA-UPLOAD] Multer middleware completed successfully`);
+          resolve();
+        }
       });
     });
 
+    console.log(`🖼️ [MEDIA-UPLOAD] Checking uploaded files...`);
     const files = req.files as Express.Multer.File[];
     
+    console.log(`🖼️ [MEDIA-UPLOAD] Files received:`, {
+      count: files?.length || 0,
+      files: files?.map(f => ({
+        fieldname: f.fieldname,
+        originalname: f.originalname,
+        filename: f.filename,
+        mimetype: f.mimetype,
+        size: f.size
+      })) || []
+    });
+    
     if (!files || files.length === 0) {
-      return res.status(400).json({ error: 'No files uploaded' });
+      console.log(`❌ [MEDIA-UPLOAD] No files uploaded`);
+      console.log(`❌ [MEDIA-UPLOAD] req.files:`, req.files);
+      console.log(`❌ [MEDIA-UPLOAD] req.body:`, req.body);
+      
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No files uploaded',
+        details: 'Expected files in multipart/form-data request',
+        receivedFiles: files?.length || 0,
+        requestBody: req.body
+      });
     }
 
     // Parse upload configuration with proper typing
     let config: UploadConfig = {};
+    console.log(`🖼️ [MEDIA-UPLOAD] Raw request body:`, req.body);
+    
     try {
-      config = JSON.parse((req.body as any).config || '{}');
-    } catch (e) {
-      console.warn('Invalid config JSON, using defaults');
+      if (req.body.config) {
+        config = JSON.parse(req.body.config);
+        console.log(`✅ [MEDIA-UPLOAD] Parsed config:`, config);
+      } else {
+        console.log(`⚠️ [MEDIA-UPLOAD] No config in request body, using defaults`);
+        // Extract config from individual body fields
+        config = {
+          characterId: req.body.characterId,
+          mood: req.body.mood,
+          pose: req.body.pose,
+          requiredLevel: parseInt(req.body.requiredLevel) || 1,
+          isVip: req.body.isVip === 'true',
+          isNsfw: req.body.isNsfw === 'true',
+          isEvent: req.body.isEvent === 'true',
+          randomSendChance: parseInt(req.body.randomSendChance) || 5,
+          enabledForChat: req.body.enabledForChat !== 'false'
+        };
+        console.log(`✅ [MEDIA-UPLOAD] Extracted config from body fields:`, config);
+      }
+    } catch (configError) {
+      console.warn(`⚠️ [MEDIA-UPLOAD] Invalid config JSON:`, configError);
+      console.warn(`⚠️ [MEDIA-UPLOAD] Using defaults and individual fields`);
+      config = {
+        characterId: req.body.characterId,
+        requiredLevel: 1
+      };
     }
 
     const uploadedFiles = [];
+    console.log(`🖼️ [MEDIA-UPLOAD] Processing ${files.length} files...`);
 
     // Process each uploaded file
     for (const file of files) {
+      console.log(`🖼️ [MEDIA-UPLOAD] Processing file: ${file.originalname}`);
+      
       try {
         // Determine file type based on MIME type
         let fileType = 'other';
@@ -107,7 +181,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           fileType = 'video';
         }
         
-        console.log(`File type determined: ${fileType} for ${file.mimetype}`);
+        console.log(`🖼️ [MEDIA-UPLOAD] File type determined: ${fileType} for ${file.mimetype}`);
 
         // Auto-create character folder structure
         if (config.characterId) {
@@ -121,13 +195,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           
           if (!fs.existsSync(characterFolder)) {
             fs.mkdirSync(characterFolder, { recursive: true });
-            console.log(`[Upload] Created character folder: ${characterFolder}`);
+            console.log(`🖼️ [MEDIA-UPLOAD] Created character folder: ${characterFolder}`);
           }
 
           // Move file to character folder
           const newPath = path.join(characterFolder, file.filename); // 🔧 FIXED: filename not fileName
           fs.renameSync(file.path, newPath);
           (file as any).path = newPath; // Update path reference
+          console.log(`🖼️ [MEDIA-UPLOAD] Moved file to character folder: ${newPath}`);
         }
 
         // Create media file record with organized path
@@ -152,48 +227,110 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
+        
+        console.log(`🖼️ [MEDIA-UPLOAD] Attempting to save to database:`, {
+          id: mediaFileData.id,
+          fileName: mediaFileData.fileName,
+          filePath: mediaFileData.filePath,
+          fileType: mediaFileData.fileType
+        });
 
         // Save to database
         const savedFile = await supabase.saveMediaFile(mediaFileData);
         
         if (savedFile) {
           uploadedFiles.push(savedFile);
-          console.log(`Successfully saved to database: ${file.filename}`);
+          console.log(`✅ [MEDIA-UPLOAD] Successfully saved to database: ${file.filename}`);
+          console.log(`✅ [MEDIA-UPLOAD] Database record:`, savedFile);
         } else {
-          console.error(`Failed to save ${file.filename} to database`);
+          console.error(`❌ [MEDIA-UPLOAD] Failed to save ${file.filename} to database - saveMediaFile returned null/undefined`);
           // Clean up the uploaded file if database save failed
           try {
             fs.unlinkSync(file.path);
+            console.log(`🗑️ [MEDIA-UPLOAD] Cleaned up file: ${file.path}`);
           } catch (cleanupError) {
-            console.error('Failed to cleanup file:', cleanupError);
+            console.error(`❌ [MEDIA-UPLOAD] Failed to cleanup file: ${cleanupError}`);
           }
         }
       } catch (fileError) {
-        console.error(`Error processing file ${file.filename}:`, fileError);
+        console.error(`❌ [MEDIA-UPLOAD] Error processing file ${file.filename}:`, {
+          error: fileError.message,
+          stack: fileError.stack,
+          file: {
+            originalname: file.originalname,
+            filename: file.filename,
+            path: file.path,
+            size: file.size,
+            mimetype: file.mimetype
+          }
+        });
         // Clean up the uploaded file on error
         try {
           fs.unlinkSync(file.path);
+          console.log(`🗑️ [MEDIA-UPLOAD] Cleaned up failed file: ${file.path}`);
         } catch (cleanupError) {
-          console.error('Failed to cleanup file:', cleanupError);
+          console.error(`❌ [MEDIA-UPLOAD] Failed to cleanup file: ${cleanupError}`);
         }
       }
     }
 
+    console.log(`🖼️ [MEDIA-UPLOAD] Processing complete. Uploaded files: ${uploadedFiles.length}`);
+
     if (uploadedFiles.length === 0) {
-      return res.status(500).json({ error: 'No files were successfully processed' });
+      console.log(`❌ [MEDIA-UPLOAD] No files were successfully processed`);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'No files were successfully processed',
+        details: 'All files failed to save to database',
+        filesAttempted: files.length,
+        uploadedCount: 0,
+        possibleCauses: [
+          'Database connection issues',
+          'Invalid file data',
+          'Missing required fields',
+          'Supabase saveMediaFile method failed'
+        ]
+      });
     }
 
+    console.log(`✅ [MEDIA-UPLOAD] Success! Uploaded ${uploadedFiles.length} files`);
     res.status(200).json({
       success: true,
       files: uploadedFiles,
-      message: `Successfully uploaded ${uploadedFiles.length} file(s)`
+      message: `Successfully uploaded ${uploadedFiles.length} file(s)`,
+      details: {
+        filesProcessed: files.length,
+        filesUploaded: uploadedFiles.length,
+        timestamp: new Date().toISOString()
+      }
     });
 
   } catch (error) {
-    console.error('Upload endpoint error:', error);
+    console.error(`❌ [MEDIA-UPLOAD] === CRITICAL ERROR ===`);
+    console.error(`❌ [MEDIA-UPLOAD] Error type: ${error.constructor.name}`);
+    console.error(`❌ [MEDIA-UPLOAD] Error message: ${error.message}`);
+    console.error(`❌ [MEDIA-UPLOAD] Error stack:`, error.stack);
+    console.error(`❌ [MEDIA-UPLOAD] Request details:`, {
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      body: req.body
+    });
+    console.error(`❌ [MEDIA-UPLOAD] === END ERROR DETAILS ===`);
+    
     res.status(500).json({ 
+      success: false, 
       error: 'Upload failed', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
+      details: error instanceof Error ? error.message : 'Unknown error',
+      errorType: error.constructor.name,
+      stack: error.stack,
+      requestInfo: {
+        method: req.method,
+        url: req.url,
+        hasFiles: !!(req.files && req.files.length > 0),
+        bodyKeys: Object.keys(req.body || {})
+      },
+      timestamp: new Date().toISOString()
     });
   }
 }
