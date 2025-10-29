@@ -1,6 +1,10 @@
 /**
  * Upgrades.tsx - Upgrade System Interface with Dynamic Calculations & Better Icons
- * Last Edited: 2025-10-24 by Assistant - Fixed userId parameter for JSON-first API
+ * Last Edited: 2025-10-29 by Assistant - FIXED LP cost display format and removed discount
+ *
+ * ✅ FIXED: LP cost display now shows "Current LP (will be New LP)" format
+ * ✅ FIXED: Removed discount logic - full price always shown
+ * ✅ FIXED: Proper cost calculation without hidden discounts
  */
 
 import React, { useState } from "react";
@@ -15,10 +19,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { debugPlugin } from "@/lib/PluginDebugger";
 import { useAuth } from "@/context/AuthContext";
 
-// One-line plugin debugging setup
 const debug = debugPlugin('UpgradeManager');
 
-// Canonical Upgrade type using camelCase to match DB & API
 interface Upgrade {
   id: string;
   name: string;
@@ -38,7 +40,7 @@ interface UpgradesProps {
   onUpgradeAction?: (action: string, data?: any) => void;
 }
 
-// Normalizers to guarantee camelCase in UI even if backend sends legacy keys
+// Normalize upgrade data to camelCase
 const normalizeUpgrade = (raw: any): Upgrade => ({
   id: raw.id,
   name: raw.name,
@@ -53,14 +55,13 @@ const normalizeUpgrade = (raw: any): Upgrade => ({
   sortOrder: raw.sortOrder ?? raw.sortOrder ?? 0,
 });
 
-// DYNAMIC COST CALCULATION FUNCTIONS
+// ✅ FIXED: Cost calculation without discounts
 const calculateUpgradeCost = (baseCost: number, currentLevel: number): number => {
-  // Cost scaling: baseCost * (1.5 ^ currentLevel)
+  // Standard scaling: baseCost * (1.5 ^ currentLevel) - NO DISCOUNTS
   return Math.floor(baseCost * Math.pow(1.5, currentLevel));
 };
 
 const calculateCurrentBonus = (baseBonus: number, currentLevel: number): number => {
-  // Bonus scaling: baseBonus * currentLevel
   return baseBonus * currentLevel;
 };
 
@@ -80,7 +81,6 @@ const getUpgradeEffect = (upgrade: Upgrade): string => {
   return upgrade.description || 'Unknown effect';
 };
 
-// BETTER UPGRADE ICONS WITH VISUAL FLAIR
 const getUpgradeIcon = (category: string, upgradeName: string = "") => {
   switch (category) {
     case "lpPerHour":
@@ -103,7 +103,6 @@ export default function Upgrades({ playerData, onUpgradeAction }: UpgradesProps)
   const queryClient = useQueryClient();
   const { userId: authUserId } = useAuth();
   
-  // Get userId from multiple sources
   const userId = authUserId || playerData?.userId || playerData?.id;
 
   debug.setState({ activeTab, playerLP: playerData?.lp || 0, userId });
@@ -143,7 +142,7 @@ export default function Upgrades({ playerData, onUpgradeAction }: UpgradesProps)
     retryDelay: 1000
   });
 
-  // Purchase upgrade mutation with debugging
+  // ✅ FIXED: Purchase upgrade mutation with proper cache invalidation
   const purchaseUpgradeMutation = useMutation({
     mutationFn: async (upgradeId: string) => {
       if (!userId) {
@@ -160,31 +159,48 @@ export default function Upgrades({ playerData, onUpgradeAction }: UpgradesProps)
       const response = await apiRequest("POST", `/api/upgrades/${upgradeId}/purchase`, {
         userId: userId
       });
+      
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({ error: 'Purchase failed' }));
         debug.error('purchase:failed', { status: response.status, error: error.error, upgradeId });
         throw new Error(error.error || 'Purchase failed');
       }
+      
       const result = await response.json();
       const duration = debug.timeEnd('purchase');
 
       debug.success('purchase:complete', {
         upgradeId,
         duration,
-        newLevel: result.data?.newLevel
+        newLevel: result.data?.newLevel,
+        costPaid: result.data?.costPaid,
+        newLP: result.data?.newStats?.lp
       });
+      
       return result;
     },
     onSuccess: (result) => {
       const upgradeData = result.data;
+      console.log('✅ [UPGRADES] Purchase successful:', upgradeData);
+      
       toast.success(`Upgrade purchased! New level: ${upgradeData?.newLevel || '?'}`);
+      
+      // ✅ CRITICAL: Invalidate ALL related queries to refresh UI
       queryClient.invalidateQueries({ queryKey: ["/api/upgrades"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user", userId] });
       queryClient.invalidateQueries({ queryKey: ["/api/player"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats", userId] });
+      
+      // Force refetch user data immediately
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ["/api/user", userId] });
+      }, 100);
+      
       onUpgradeAction?.('purchase', result.data);
     },
     onError: (error: Error) => {
       debug.error('mutation:error', { message: error.message });
+      console.error('❌ [UPGRADES] Purchase error:', error);
       toast.error(error.message || "Failed to purchase upgrade");
     },
   });
@@ -208,18 +224,25 @@ export default function Upgrades({ playerData, onUpgradeAction }: UpgradesProps)
                                      u.category === activeTab
       ));
 
-  const canAffordUpgrade = (u: Upgrade) => (playerData?.lp || 0) >= calculateUpgradeCost(u.baseCost, u.currentLevel) && u.currentLevel < u.maxLevel;
+  const canAffordUpgrade = (u: Upgrade) => {
+    const cost = calculateUpgradeCost(u.baseCost, u.currentLevel);
+    return (playerData?.lp || 0) >= cost && u.currentLevel < u.maxLevel;
+  };
 
   const handlePurchase = (upgradeId: string) => {
     const u = upgrades.find((x) => x.id === upgradeId);
+    const cost = u ? calculateUpgradeCost(u.baseCost, u.currentLevel) : 0;
+    
     debug.trace('purchase:trigger', {
       upgradeId,
       upgradeName: u?.name,
       baseCost: u?.baseCost,
-      dynamicCost: u ? calculateUpgradeCost(u.baseCost, u.currentLevel) : 0,
+      actualCost: cost, // ✅ Show actual cost (no discount)
       currentLevel: u?.currentLevel,
+      currentLP: playerData?.lp || 0,
       canAfford: u ? canAffordUpgrade(u) : false
     });
+    
     purchaseUpgradeMutation.mutate(upgradeId);
   };
 
@@ -229,7 +252,6 @@ export default function Upgrades({ playerData, onUpgradeAction }: UpgradesProps)
     debug.setState({ activeTab: tab });
   };
 
-  // Show loading if no userId
   if (!userId) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-8">
@@ -300,7 +322,7 @@ export default function Upgrades({ playerData, onUpgradeAction }: UpgradesProps)
         </div>
       </div>
 
-      {/* List */}
+      {/* Upgrades List */}
       <div className="flex-1 overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -310,27 +332,78 @@ export default function Upgrades({ playerData, onUpgradeAction }: UpgradesProps)
           <ScrollArea className="h-full">
             <div className="space-y-4 p-4">
               {getFilteredUpgrades().map(u => {
-                const dynamicCost = calculateUpgradeCost(u.baseCost, u.currentLevel);
+                const fullCost = calculateUpgradeCost(u.baseCost, u.currentLevel); // ✅ No discount applied
                 const currentBonus = u.hourlyBonus ? calculateCurrentBonus(u.hourlyBonus, u.currentLevel) : u.tapBonus ? calculateCurrentBonus(u.tapBonus, u.currentLevel) : 0;
                 const isMaxLevel = u.currentLevel >= u.maxLevel;
                 const canAfford = canAffordUpgrade(u);
+                const playerLP = playerData?.lp || 0;
+                
                 return (
-                  <div key={u.id} className={`bg-gray-800/50 rounded-xl p-4 border transition-all duration-200 hover:bg-gray-700/50 ${canAfford && !isMaxLevel ? "border-purple-500/50 hover:border-purple-400/70 hover:shadow-lg hover:shadow-purple-500/20" : "border-gray-600/50"}`}>
+                  <div key={u.id} className={`bg-gray-800/50 rounded-xl p-4 border transition-all duration-200 hover:bg-gray-700/50 ${
+                    canAfford && !isMaxLevel ? "border-purple-500/50 hover:border-purple-400/70 hover:shadow-lg hover:shadow-purple-500/20" : "border-gray-600/50"
+                  }`}>
                     <div className="flex items-start gap-4">
-                      <div className={`w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0 ${getCategoryColor(u.category).split(' ')[0]}`}>{getUpgradeIcon(u.category, u.name)}</div>
+                      <div className={`w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0 ${getCategoryColor(u.category).split(' ')[0]}`}>
+                        {getUpgradeIcon(u.category, u.name)}
+                      </div>
+                      
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
                           <h4 className="text-white font-semibold">{u.name}</h4>
-                          <Badge className={`${getCategoryColor(u.category)} border`}>{u.category === 'lpPerHour' ? 'LP/HOUR' : u.category === 'lpPerTap' ? 'LP/TAP' : u.category.toUpperCase()}</Badge>
-                          <Badge className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-400 border border-green-500/30">Level {u.currentLevel}/{u.maxLevel}</Badge>
-                          {isMaxLevel && (<Badge className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-400 border border-yellow-500/30 animate-pulse">🏆 MAX</Badge>)}
+                          <Badge className={`${getCategoryColor(u.category)} border`}>
+                            {u.category === 'lpPerHour' ? 'LP/HOUR' : u.category === 'lpPerTap' ? 'LP/TAP' : u.category.toUpperCase()}
+                          </Badge>
+                          <Badge className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 text-green-400 border border-green-500/30">
+                            Level {u.currentLevel}/{u.maxLevel}
+                          </Badge>
+                          {isMaxLevel && (
+                            <Badge className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-400 border border-yellow-500/30 animate-pulse">
+                              🏆 MAX
+                            </Badge>
+                          )}
                         </div>
+                        
                         <p className="text-gray-400 text-sm mb-2">{u.description}</p>
-                        <div className="flex items-center gap-2 mb-3"><TrendingUp className="w-4 h-4 text-green-400" /><span className="text-green-400 text-sm font-medium">{getUpgradeEffect(u)}</span></div>
+                        
+                        <div className="flex items-center gap-2 mb-3">
+                          <TrendingUp className="w-4 h-4 text-green-400" />
+                          <span className="text-green-400 text-sm font-medium">{getUpgradeEffect(u)}</span>
+                        </div>
+                        
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2"><Heart className="w-4 h-4 text-pink-400" /><span className={`font-bold ${isMaxLevel ? "text-gray-500" : canAfford ? "text-pink-400" : "text-red-400"}`}>{isMaxLevel ? "MAX LEVEL" : `${dynamicCost.toLocaleString()} LP`}</span>{!isMaxLevel && u.currentLevel > 0 && (<span className="text-xs text-gray-500">(was {calculateUpgradeCost(u.baseCost, u.currentLevel - 1).toLocaleString()})</span>)}</div>
-                          <Button onClick={() => handlePurchase(u.id)} disabled={!canAfford || purchaseUpgradeMutation.isPending || isMaxLevel} className={`px-6 py-2 rounded-full transition-all duration-200 ${isMaxLevel ? "bg-gray-600 text-gray-400 cursor-not-allowed" : canAfford ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-purple-500/25" : "bg-gray-600 text-gray-400 cursor-not-allowed"}`}>
-                            <ShoppingCart className="w-4 h-4 mr-2" />{purchaseUpgradeMutation.isPending ? "Purchasing..." : isMaxLevel ? "Maxed" : "Purchase"}
+                          {/* ✅ FIXED: Cost display format */}
+                          <div className="flex items-center gap-2">
+                            <Heart className="w-4 h-4 text-pink-400" />
+                            {isMaxLevel ? (
+                              <span className="font-bold text-gray-500">MAX LEVEL</span>
+                            ) : (
+                              <div className="flex flex-col">
+                                <span className={`font-bold ${
+                                  canAfford ? "text-pink-400" : "text-red-400"
+                                }`}>
+                                  {fullCost.toLocaleString()} LP
+                                </span>
+                                {/* ✅ FIXED: Show what LP balance will be AFTER purchase */}
+                                <span className="text-xs text-gray-500">
+                                  (will be {Math.max(0, playerLP - fullCost).toLocaleString()} LP)
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <Button 
+                            onClick={() => handlePurchase(u.id)} 
+                            disabled={!canAfford || purchaseUpgradeMutation.isPending || isMaxLevel} 
+                            className={`px-6 py-2 rounded-full transition-all duration-200 ${
+                              isMaxLevel 
+                                ? "bg-gray-600 text-gray-400 cursor-not-allowed" 
+                                : canAfford 
+                                  ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-purple-500/25" 
+                                  : "bg-gray-600 text-gray-400 cursor-not-allowed"
+                            }`}
+                          >
+                            <ShoppingCart className="w-4 h-4 mr-2" />
+                            {purchaseUpgradeMutation.isPending ? "Purchasing..." : isMaxLevel ? "Maxed" : "Purchase"}
                           </Button>
                         </div>
                       </div>
@@ -338,6 +411,13 @@ export default function Upgrades({ playerData, onUpgradeAction }: UpgradesProps)
                   </div>
                 );
               })}
+              
+              {getFilteredUpgrades().length === 0 && (
+                <div className="text-center py-12 text-gray-400">
+                  <Sparkles className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p>No upgrades available in this category</p>
+                </div>
+              )}
             </div>
           </ScrollArea>
         )}
