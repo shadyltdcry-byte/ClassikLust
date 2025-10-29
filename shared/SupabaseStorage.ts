@@ -539,7 +539,7 @@ export class SupabaseStorage implements IStorage {
   async uploadMedia(file: any): Promise<MediaFile> {
     const mediaFile: MediaFile = {
       characterId: file.characterId, fileName: file.fileName, filePath: file.url, fileType: file.type,
-      mood: file.mood, pose: file.pose, animationSequence: file.animationSequence,
+      mood: file.mood, pose: file.poses, animationSequence: file.animationSequence,
       isNsfw: file.isNsfw || false, isVip: file.isVip || false, isEvent: file.isEvent || false,
       randomSendChance: file.randomSendChance, requiredLevel: file.requiredLevel,
       enabledForChat: file.enabledForChat, category: file.category,

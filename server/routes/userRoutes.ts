@@ -112,7 +112,7 @@ export function registerUserRoutes(app: Express) {
       if (userId.startsWith('telegram_')) {
         const telegramId = userId.replace('telegram_', '');
         queryUserId = telegramId;
-        queryField = 'telegram';
+        queryField = 'telegramId';
         console.log(`📱 [USER] Using telegram query: ${queryField} = ${queryUserId}`);
       } else if (!isValidUUID(userId)) {
         console.error('❌ [USER] Invalid user ID format:', userId);

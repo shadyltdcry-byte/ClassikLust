@@ -84,18 +84,18 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
 
   // 🆕 NEW: Set display picture mutation
   const setDisplayPictureMutation = useMutation({
-    mutationFn: async (imagePath: string) => {
-      console.log('🖼️ [GALLERY] Setting display picture:', imagePath);
+    mutationFn: async (fileName: string) => {
+      console.log('🖼️ [GALLERY] Setting display picture:', fileName;
       const response = await apiRequest('POST', '/api/user/set-display-picture', {
         userId: user?.id || userId,
-        imagePath
+        fileName
       });
       if (!response.ok) {
         throw new Error('Failed to set display picture');
       }
       return response.json();
     },
-    onSuccess: (data, imagePath) => {
+    onSuccess: (data, fileName) => {
       toast({
         title: "Display Picture Updated!",
         description: "Your profile picture has been changed.",
