@@ -42,12 +42,14 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
   const slideshowRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  // ✅ FIXED: Use only userId from useAuth (not user which doesn't exist)
+  const { userId: authUserId } = useAuth();
+  const effectiveUserId = authUserId || userId;
 
   
   // Fetch characters - using correct endpoint
   const { data: characters = [], isLoading: charactersLoading } = useQuery({
-    queryKey: ['/api/characters', userId],
+    queryKey: ['/api/characters', effectiveUserId],
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/characters');
       return await response.json();
@@ -82,30 +84,47 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
     refetchOnWindowFocus: true
   });
 
-  // 🆕 NEW: Set display picture mutation
+  // ✅ FIXED: Set display picture mutation uses fileName properly
   const setDisplayPictureMutation = useMutation({
-    mutationFn: async (fileName: string) => {
-      console.log('🖼️ [GALLERY] Setting display picture:', fileName);
-      const response = await apiRequest('POST', '/api/user/set-display-picture', {
-        userId: user?.id || userId,
-        fileName
-      });
-      if (!response.ok) {
-        throw new Error('Failed to set display picture');
+    mutationFn: async (imagePath: string) => {
+      console.log('🖼️ [GALLERY] Setting display picture:', imagePath, 'for user:', effectiveUserId);
+      
+      // Extract fileName from path if needed
+      let fileName = imagePath;
+      if (imagePath.startsWith('/uploads/')) {
+        fileName = imagePath.replace('/uploads/', '');
+      } else if (imagePath.includes('/')) {
+        fileName = imagePath.split('/').pop() || imagePath;
       }
+      
+      console.log('🖼️ [GALLERY] Using fileName:', fileName);
+      
+      const response = await apiRequest('POST', '/api/user/set-display-picture', {
+        userId: effectiveUserId,
+        imagePath: fileName // ✅ Send fileName only (not full path)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [GALLERY] Display picture error:', errorText);
+        throw new Error(`Failed to set display picture: ${response.status}`);
+      }
+      
       return response.json();
     },
     onSuccess: (data, fileName) => {
+      console.log('✅ [GALLERY] Display picture set successfully:', data);
       toast({
         title: "Display Picture Updated!",
-        description: "Your profile picture has been changed.",
+        description: "Your main picture has been changed.",
       });
-      // Invalidate auth context to refresh user data
+      // Invalidate user data to refresh display
       queryClient.invalidateQueries({ queryKey: ['/api/user'] });
       queryClient.invalidateQueries({ queryKey: ['/api/player'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
     },
     onError: (error) => {
-      console.error('Error setting display picture:', error);
+      console.error('❌ [GALLERY] Error setting display picture:', error);
       toast({
         title: "Error",
         description: "Failed to set display picture. Please try again.",
@@ -117,7 +136,7 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
   // Character selection mutation
   const selectCharacterMutation = useMutation({
     mutationFn: async (characterId: string) => {
-      const response = await apiRequest("POST", `/api/player/${userId}/select-character`, {
+      const response = await apiRequest("POST", `/api/player/${effectiveUserId}/select-character`, {
         characterId
       });
       if (!response.ok) {
@@ -131,7 +150,7 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
         title: "Character Selected!",
         description: `You've chosen ${character?.name}`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/character/selected", userId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/character/selected", effectiveUserId] });
       if (onCharacterSelected) {
         onCharacterSelected(characterId);
       }
@@ -148,16 +167,16 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
   // Filter characters based on current filter
   const filteredCharacters = characters.filter((char: Character) => {
     switch (filter) {
-      case 'unlocked': return char.isEnabled; // Use isEnabled instead of isUnlocked
+      case 'unlocked': return char.isEnabled;
       case 'locked': return !char.isEnabled;
       case 'vip': return char.isVip;
-      case 'event': return false; // No event field exists, return false
+      case 'event': return false; // No event field exists
       default: return true;
     }
   });
 
   const handleSelectCharacter = (characterId: string) => {
-    if (!userId || userId === 'undefined') {
+    if (!effectiveUserId || effectiveUserId === 'undefined') {
       toast({
         title: "Authentication Required",
         description: "Please log in to select a character.",
@@ -178,7 +197,7 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
     selectCharacterMutation.mutate(characterId);
   };
 
-  // 🆕 NEW: Handle set display picture
+  // ✅ FIXED: Handle set display picture with proper fileName
   const handleSetDisplayPicture = () => {
     const currentImage = getCurrentImage();
     if (!currentImage) {
@@ -191,6 +210,7 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
     }
     
     const imagePath = getImageUrl(currentImage);
+    console.log('🖼️ [GALLERY] Setting display picture from:', imagePath);
     setDisplayPictureMutation.mutate(imagePath);
   };
 
@@ -395,7 +415,7 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
                             variant="outline"
                             onClick={handleSetDisplayPicture}
                             disabled={setDisplayPictureMutation.isPending}
-                            title="Set as display picture"
+                            title="Set as main display picture"
                             className="border-purple-400/50 text-purple-400 hover:bg-purple-600/20 px-2"
                           >
                             {setDisplayPictureMutation.isPending ? (
@@ -444,7 +464,7 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
                       {characterImages.length} image{characterImages.length !== 1 ? 's' : ''}
                       {/* 🆕 NEW: Display picture hint */}
                       {characterImages.length > 0 && (
-                        <span className="ml-2 text-purple-400">• Click 👤 to set as display picture</span>
+                        <span className="ml-2 text-purple-400">• Click 👤 to set as main picture</span>
                       )}
                     </p>
                   </div>
@@ -458,7 +478,7 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
                     ) : characterImages.length > 0 ? (
                       <>
                         <img
-                          src={getImageUrl(getCurrentImage())}
+                          src={getImageUrl(getCurrentImage()!)}
                           alt={`${selectedCharacter.name} - Image ${currentImageIndex + 1}`}
                           className="w-full h-full object-contain"
                           onError={(e) => {
@@ -509,8 +529,7 @@ export default function CharacterGallery({ isOpen, onClose, userId, onCharacterS
                     )}
                   </div>
 
-                               
-              {/* Image Thumbnails */}
+                  {/* Image Thumbnails */}
                   <div className="flex gap-1 overflow-x-auto pb-2">
                     {thumbnailsToShow.map((img: MediaFile, index: number) => (
                       <button
