@@ -1,6 +1,10 @@
 /**
  * upgradeRoutes.ts - Complete Upgrade API Routes
- * Last Edited: 2025-10-24 by Assistant - Fixed purchase routing and endpoints
+ * Last Edited: 2025-10-29 by Assistant - FIXED constraint issue with userUpgrades
+ *
+ * ✅ FIXED: Removed ON CONFLICT clause that was causing constraint errors
+ * ✅ FIXED: Use INSERT or UPDATE pattern instead of UPSERT
+ * ✅ FIXED: Proper error handling and rollback for failed transactions
  */
 
 import { Router } from 'express';
@@ -91,6 +95,7 @@ router.get('/all', async (req, res) => {
 
 /**
  * POST /api/upgrades/purchase - New unified purchase endpoint
+ * ✅ FIXED: Proper constraint handling
  */
 router.post('/purchase', async (req, res) => {
   try {
@@ -134,32 +139,59 @@ router.post('/purchase', async (req, res) => {
 
     const newLP = (user.lp || 0) - cost;
 
-    // Start transaction-like operations
+    // ✅ FIXED: Use INSERT or UPDATE pattern instead of UPSERT
     try {
-      // Update user LP
+      // Update user LP first
       await supabaseStorage.updateUser(actualUserId, { lp: newLP });
+      console.log(`💰 [UPGRADES] Deducted ${cost} LP, new balance: ${newLP}`);
 
-      // Update/insert user upgrade level
-      const { error: upgradeError } = await supabaseStorage.supabase
+      // Check if user upgrade record exists
+      const { data: existingUpgrade } = await supabaseStorage.supabase
         .from('userUpgrades')
-        .upsert({
-          userId: actualUserId, // TEXT field, no UUID casting
-          upgradeId: upgradeId, // TEXT field, no UUID casting
-          level: newLevel,
-          updatedAt: new Date().toISOString()
-        }, {
-          onConflict: 'userId,upgradeId'
-        });
+        .select('*')
+        .eq('userId', actualUserId)
+        .eq('upgradeId', upgradeId)
+        .maybeSingle();
 
-      if (upgradeError) {
-        console.error('Failed to update upgrade level:', upgradeError);
-        // Try to refund the LP
-        await supabaseStorage.updateUser(actualUserId, { lp: user.lp });
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to update upgrade level',
-          details: upgradeError.message
-        });
+      if (existingUpgrade) {
+        // Update existing record
+        const { data: updatedUpgrade, error: updateError } = await supabaseStorage.supabase
+          .from('userUpgrades')
+          .update({
+            level: newLevel,
+            updatedAt: new Date().toISOString()
+          })
+          .eq('userId', actualUserId)
+          .eq('upgradeId', upgradeId)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('❌ [UPGRADES] Failed to update upgrade level:', updateError);
+          throw updateError;
+        }
+        
+        console.log(`✅ [UPGRADES] Updated existing upgrade: ${upgradeId} to level ${newLevel}`);
+      } else {
+        // Insert new record
+        const { data: newUpgrade, error: insertError } = await supabaseStorage.supabase
+          .from('userUpgrades')
+          .insert({
+            userId: actualUserId,
+            upgradeId: upgradeId,
+            level: newLevel,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('❌ [UPGRADES] Failed to insert upgrade level:', insertError);
+          throw insertError;
+        }
+        
+        console.log(`✅ [UPGRADES] Created new upgrade record: ${upgradeId} at level ${newLevel}`);
       }
 
       res.json({
@@ -178,11 +210,12 @@ router.post('/purchase', async (req, res) => {
 
     } catch (transactionError: any) {
       // Rollback LP if upgrade save failed
-      console.error('Transaction failed, attempting rollback:', transactionError);
+      console.error('❌ [UPGRADES] Transaction failed, attempting rollback:', transactionError);
       try {
         await supabaseStorage.updateUser(actualUserId, { lp: user.lp });
+        console.log(`✅ [UPGRADES] LP rollback successful: restored to ${user.lp}`);
       } catch (rollbackError) {
-        console.error('Rollback also failed:', rollbackError);
+        console.error('❌ [UPGRADES] Rollback also failed:', rollbackError);
       }
       throw transactionError;
     }
@@ -201,6 +234,7 @@ router.post('/purchase', async (req, res) => {
 /**
  * POST /api/upgrades/:upgradeId/purchase - Legacy endpoint (redirects to new one)
  * This handles the old frontend calls
+ * ✅ FIXED: Same constraint fix applied
  */
 router.post('/:upgradeId/purchase', async (req, res) => {
   try {
@@ -245,34 +279,65 @@ router.post('/:upgradeId/purchase', async (req, res) => {
       // Deduct LP
       const newLP = (user.lp || 0) - cost;
       await supabaseStorage.updateUser(actualUserId, { lp: newLP });
+      console.log(`💰 [PURCHASE] LP deducted: ${user.lp} -> ${newLP}`);
 
-      // Update upgrade level
-      const { error: upgradeError } = await supabaseStorage.supabase
+      // ✅ FIXED: Use INSERT or UPDATE pattern instead of UPSERT
+      const { data: existingUpgrade } = await supabaseStorage.supabase
         .from('userUpgrades')
-        .upsert({
-          userId: actualUserId,
-          upgradeId,
-          level: currentLevel + 1,
-          updatedAt: new Date().toISOString()
-        }, {
-          onConflict: 'userId,upgradeId'
-        });
+        .select('*')
+        .eq('userId', actualUserId)
+        .eq('upgradeId', upgradeId)
+        .maybeSingle();
 
-      if (upgradeError) {
-        console.error('Failed to update upgrade:', upgradeError);
-        throw new Error('Failed to save upgrade progress');
+      const targetLevel = currentLevel + 1;
+
+      if (existingUpgrade) {
+        // Update existing record
+        const { error: updateError } = await supabaseStorage.supabase
+          .from('userUpgrades')
+          .update({
+            level: targetLevel,
+            updatedAt: new Date().toISOString()
+          })
+          .eq('userId', actualUserId)
+          .eq('upgradeId', upgradeId);
+
+        if (updateError) {
+          console.error('❌ [PURCHASE] Failed to update upgrade:', updateError);
+          throw new Error('Failed to save upgrade progress');
+        }
+        
+        console.log(`✅ [PURCHASE] Updated upgrade ${upgradeId} to level ${targetLevel}`);
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabaseStorage.supabase
+          .from('userUpgrades')
+          .insert({
+            userId: actualUserId,
+            upgradeId,
+            level: targetLevel,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+
+        if (insertError) {
+          console.error('❌ [PURCHASE] Failed to insert upgrade:', insertError);
+          throw new Error('Failed to save upgrade progress');
+        }
+        
+        console.log(`✅ [PURCHASE] Created upgrade ${upgradeId} at level ${targetLevel}`);
       }
 
       // Get updated user stats
       const updatedUser = await supabaseStorage.getUser(actualUserId);
 
-      console.log(`✅ [PURCHASE] Success: ${upgradeId} level ${currentLevel + 1}, LP: ${newLP}`);
+      console.log(`✅ [PURCHASE] Success: ${upgradeId} level ${targetLevel}, LP: ${newLP}`);
 
       res.json({
         success: true,
         data: {
           upgradeId,
-          newLevel: currentLevel + 1,
+          newLevel: targetLevel,
           costPaid: cost,
           newStats: {
             lp: updatedUser?.lp || newLP,
@@ -281,16 +346,25 @@ router.post('/:upgradeId/purchase', async (req, res) => {
         }
       });
 
-    } catch (transactionError) {
+    } catch (transactionError: any) {
       // Rollback LP if upgrade save failed
-      console.error('Transaction failed, attempting rollback:', transactionError);
-      await supabaseStorage.updateUser(actualUserId, { lp: user.lp });
+      console.error('❌ [PURCHASE] Transaction failed, attempting rollback:', transactionError);
+      try {
+        await supabaseStorage.updateUser(actualUserId, { lp: user.lp });
+        console.log(`✅ [PURCHASE] Rollback successful: LP restored to ${user.lp}`);
+      } catch (rollbackError) {
+        console.error('❌ [PURCHASE] Rollback failed:', rollbackError);
+      }
       throw transactionError;
     }
 
-  } catch (error) {
-    console.error('Error purchasing upgrade:', error);
-    res.status(500).json({ success: false, error: 'Purchase failed' });
+  } catch (error: any) {
+    console.error('❌ [PURCHASE] Error purchasing upgrade:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Purchase failed',
+      details: error?.message || 'Unknown error'
+    });
   }
 });
 
